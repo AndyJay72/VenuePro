@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VenuePro Booking</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        // SECURITY CHECK: If no token, redirect to login immediately
+        if (!localStorage.getItem('vp_token')) {
+            window.location.href = 'login.html';
+        }
+    </script>    
+    <style>
+        /* --- THEME VARIABLES --- */
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: rgba(30, 41, 59, 0.95); /* Slightly more opaque for better readability */
+            --border: rgba(148, 163, 184, 0.2);
+            --primary: #6366f1;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --sidebar-width: 260px;
+        }
+
+        /* --- RESET & BASE --- */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                              radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            overflow-x: hidden;
+        }
+
+        /* --- SIDEBAR --- */
+        aside {
+            width: var(--sidebar-width);
+            background: rgba(15, 23, 42, 0.98);
+            border-right: 1px solid var(--border);
+            padding: 2rem;
+            display: flex; flex-direction: column; position: fixed; height: 100vh; z-index: 100;
+            transition: transform 0.3s ease;
+        }
+        .brand { font-size: 1.5rem; font-weight: 700; color: white; display: flex; align-items: center; justify-content: space-between; margin-bottom: 3rem; }
+        .nav-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: var(--text-muted); text-decoration: none; border-radius: 8px; margin-bottom: 5px; transition: all 0.2s; font-weight: 500; }
+        .nav-link:hover, .nav-link.active { background: rgba(99, 102, 241, 0.1); color: var(--primary); }
+        .close-sidebar { display: none; background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; }
+
+        /* --- MAIN CONTENT --- */
+        main {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 2rem;
+            width: 100%;
+            max-width: 100%; /* Fix Chrome overflow */
+            transition: margin-left 0.3s ease;
+        }
+
+        header { display: flex; align-items: center; margin-bottom: 2rem; gap: 1rem; }
+        .menu-toggle { display: none; background: var(--bg-card); border: 1px solid var(--border); color: white; width: 40px; height: 40px; border-radius: 8px; align-items: center; justify-content: center; cursor: pointer; }
+
+        /* --- FORM LAYOUT --- */
+        .form-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .form-section-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.8rem;
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .form-section-title i { color: var(--primary); }
+
+        /* Grid System */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* Force 2 columns */
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .full-width { grid-column: span 2; }
+
+        /* Inputs */
+        .input-group label {
+            display: block; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+
+        .input-wrapper { position: relative; width: 100%; }
+        
+        .input-wrapper i.icon-left {
+            position: absolute; left: 15px; top: 50%; transform: translateY(-50%);
+            color: var(--primary); pointer-events: none; z-index: 2;
+        }
+        
+        .input-wrapper i.icon-right {
+            position: absolute; right: 15px; top: 50%; transform: translateY(-50%);
+            color: var(--text-muted); pointer-events: none; font-size: 0.8rem; z-index: 2;
+        }
+
+        /* Universal Input Styling (Chrome/Firefox/Safari) */
+        input, select {
+            width: 100%;
+            height: 50px; /* Explicit height for alignment */
+            padding: 0 15px 0 45px; /* L/R Padding */
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: white;
+            outline: none;
+            font-size: 1rem;
+            transition: all 0.3s;
+            appearance: none; -webkit-appearance: none; -moz-appearance: none;
+        }
+
+        select { padding-right: 40px; cursor: pointer; }
+        select option { background: #1e293b; color: white; padding: 10px; }
+
+        input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); background: rgba(0,0,0,0.5); }
+        input[readonly] { opacity: 0.6; cursor: not-allowed; background: rgba(255,255,255,0.05); }
+
+        /* Payment Section */
+        .payment-box {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .total-display {
+            font-size: 2.2rem; font-weight: 700; color: var(--success);
+            margin: 10px 0; display: block;
+        }
+
+        .action-buttons {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 2rem;
+        }
+
+        .btn {
+            padding: 16px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            font-size: 1rem; transition: transform 0.2s; color: #0f172a; width: 100%;
+        }
+        .btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-warning { background: var(--warning); }
+        .btn-success { background: var(--success); }
+
+        /* Overlay */
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 90; backdrop-filter: blur(2px); }
+        .overlay.active { display: block; }
+
+        /* --- RESPONSIVE MEDIA QUERIES --- */
+        @media (max-width: 900px) {
+            .form-grid { grid-template-columns: 1fr; } /* Stack everything */
+            .full-width { grid-column: span 1; }
+        }
+
+        @media (max-width: 768px) {
+            aside { transform: translateX(-100%); } 
+            aside.active { transform: translateX(0); }
+            main { margin-left: 0; padding: 1rem; }
+            .menu-toggle { display: flex; } 
+            .close-sidebar { display: block; }
+            .form-card { padding: 1.5rem; }
+            .action-buttons { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+
+    <aside id="sidebar">
+        <div class="brand"><span><i class="fa-solid fa-layer-group"></i> VenuePro</span><button class="close-sidebar" onclick="toggleMenu()"><i class="fa-solid fa-xmark"></i></button></div>
+        <nav>
+            <a href="index.html" class="nav-link"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+            <a href="bookings.html" class="nav-link"><i class="fa-solid fa-calendar-days"></i> Bookings</a>
+            <a href="customers.html" class="nav-link"><i class="fa-solid fa-users"></i> Customers</a>
+            <a href="accounts.html" class="nav-link"><i class="fa-solid fa-file-invoice-dollar"></i> Accounts</a>
+            <a href="final-payment.html" class="nav-link"><i class="fa-check-double"></i> Final Payment</a> 
+            <a href="calendar.html" class="nav-link"><i class="fa-solid fa-calendar-alt"></i> Calendar</a>
+            <a href="users.html" class="nav-link"> <i class="fa-solid fa-user-shield"></i> Users</a>      
+            <a href="#" onclick="logout()" class="nav-link" style="margin-top: auto; color: #ef4444; border-top: 1px solid rgba(255,255,255,0.05);">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout</a>              
+        </nav>
+    </aside>
+
+    <main>
+        <header>
+            <button class="menu-toggle" onclick="toggleMenu()"><i class="fa-solid fa-bars"></i></button>
+            <h1 style="font-size: 1.5rem; font-weight: 700;">Process Booking Request</h1>
+        </header>
+
+        <form id="bookingForm" class="form-card" onsubmit="return false;">
+            
+            <!-- REQUEST SELECTION -->
+            <div class="form-section-title"><i class="fa-solid fa-inbox"></i> Select Enquiry</div>
+            <div class="form-grid">
+                <div class="input-group full-width">
+                    <label>Pending Enquiry</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-list-check icon-left"></i>
+                        <select id="requestSelect" onchange="fillDetails()" required>
+                            <option value="">Loading requests...</option>
+                        </select>
+                        <i class="fa-solid fa-chevron-down icon-right"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CUSTOMER DETAILS -->
+            <div class="form-section-title"><i class="fa-solid fa-user"></i> Customer Details</div>
+            <div class="form-grid">
+                <div class="input-group">
+                    <label>Name</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-user icon-left"></i>
+                        <input type="text" id="customerName" readonly>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Email</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-envelope icon-left"></i>
+                        <input type="text" id="customerEmail" readonly>
+                    </div>
+                </div>
+                <!-- VISIBLE ID FOR DEBUGGING -->
+                <div class="input-group full-width">
+                    <label>Customer Ref (ID)</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-fingerprint icon-left"></i>
+                        <input type="text" id="customerId" readonly style="color: var(--warning);">
+                    </div>
+                </div>
+                <input type="hidden" id="requestId">
+                <input type="hidden" id="roomId">
+            </div>
+
+            <!-- EVENT & PRICING -->
+            <div class="form-section-title"><i class="fa-solid fa-calendar-check"></i> Event Details</div>
+            <div class="form-grid">
+                <div class="input-group">
+                    <label>Room</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-door-open icon-left"></i>
+                        <input type="text" id="roomName" readonly>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Date</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-calendar icon-left"></i>
+                        <input type="date" id="bookingDate" required>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>Start Time</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-clock icon-left"></i>
+                        <select id="startTime" onchange="calculateCost()" required>
+                            <option value="" disabled selected>--:--</option>
+                        </select>
+                        <i class="fa-solid fa-chevron-down icon-right"></i>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label>End Time</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-clock icon-left"></i>
+                        <select id="endTime" onchange="calculateCost()" required>
+                            <option value="" disabled selected>--:--</option>
+                        </select>
+                        <i class="fa-solid fa-chevron-down icon-right"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAYMENT -->
+            <div class="form-section-title"><i class="fa-solid fa-credit-card"></i> Payment</div>
+            <div class="payment-box">
+                <label style="color:var(--text-muted); font-weight:600; text-transform:uppercase;">Total Cost</label>
+                <!-- Large Display for Total -->
+                <div id="totalDisplay" class="total-display">£0.00</div>
+                <!-- Hidden inputs for math -->
+                <input type="hidden" id="totalAmount">
+                <input type="hidden" id="depositAmount">
+                
+                <div id="costBreakdown" style="font-size:0.9rem; color:var(--text-muted); margin-bottom:1.5rem; font-style:italic;">Select a request to calculate</div>
+
+                <div style="text-align: left;">
+                    <label style="color:var(--text-muted); font-size:0.9rem; font-weight:600; margin-bottom:5px; display:block;">PAYING NOW (£)</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-sterling-sign icon-left"></i>
+                        <input type="number" id="payAmount" placeholder="0.00" required>
+                    </div>
+                </div>
+
+                <div class="action-buttons">
+                    <button type="button" class="btn btn-warning" id="btnDeposit" onclick="submitBooking('deposit')">
+                        <i class="fa-solid fa-coins"></i> Pay Deposit
+                    </button>
+                    <button type="button" class="btn btn-success" id="btnFull" onclick="submitBooking('full')">
+                        <i class="fa-solid fa-check-circle"></i> Pay in Full
+                    </button>
+                </div>
+            </div>
+        </form>
+    </main>
+
+    <script>
+        // CONFIG
+        function logout() {
+            if(confirm("Are you sure you want to log out?")) {
+                // Clear the keys
+                localStorage.removeItem('vp_token');
+                localStorage.removeItem('vp_user');
+                // Redirect
+                window.location.href = 'login.html';
+            }
+        }        
+        const REQUESTS_API = 'https://n8n.srv1090894.hstgr.cloud/webhook/get-pending-requests';
+        const BOOKING_API = 'https://n8n.srv1090894.hstgr.cloud/webhook/make-booking';
+        const CHECK_API  = 'https://n8n.srv1090894.hstgr.cloud/webhook/check-availability';
+
+        function getAuthHeaders() {
+            return { 'Authorization': 'Bearer ' + (localStorage.getItem('vp_token') || '') };
+        }
+
+        
+        let requestsData = [];
+        
+        const roomRates = {
+            "Conference Room A": { hourly: 100, daily: 500, depositPct: 30 },
+            "Banquet Hall B": { hourly: 200, daily: 1000, depositPct: 40 },
+            "Grand Ballroom": { hourly: 250, daily: 2500, depositPct: 20 },
+            "Executive Suite": { hourly: 50, daily: 400, depositPct: 50 },
+            "Garden Terrace": { hourly: 100, daily: 800, depositPct: 30 }
+        };
+
+        const formatGBP = (num) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(num);
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); }
+
+        function populateTimeDropdowns() {
+            const startSelect = document.getElementById('startTime');
+            const endSelect = document.getElementById('endTime');
+            for (let hour = 8; hour <= 23; hour++) {
+                const hh = hour.toString().padStart(2, '0');
+                startSelect.add(new Option(`${hh}:00`, `${hh}:00`));
+                endSelect.add(new Option(`${hh}:00`, `${hh}:00`));
+                if (hour < 23) {
+                    startSelect.add(new Option(`${hh}:30`, `${hh}:30`));
+                    endSelect.add(new Option(`${hh}:30`, `${hh}:30`));
+                }
+            }
+        }
+
+        async function loadRequests() {
+            try {
+                const response = await fetch(REQUESTS_API, { headers: getAuthHeaders() });
+                const json = await response.json();
+                requestsData = json.data || (Array.isArray(json) ? json : []);
+                
+                const select = document.getElementById('requestSelect');
+                select.innerHTML = '<option value="">-- Select Pending Request --</option>';
+                
+                if (requestsData.length === 0) {
+                    const opt = document.createElement('option');
+                    opt.text = "No pending requests found";
+                    select.add(opt);
+                    return;
+                }
+
+                requestsData.forEach((req, index) => {
+                    const opt = document.createElement('option');
+                    opt.value = index;
+                    const dateStr = req.requested_date ? new Date(req.requested_date).toLocaleDateString() : '';
+                    opt.text = `${req.full_name} | ${req.room_name} | ${dateStr}`;
+                    select.add(opt);
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        function fillDetails() {
+            const index = document.getElementById('requestSelect').value;
+            if (index === "") return;
+            const req = requestsData[index];
+
+            document.getElementById('customerName').value = req.full_name || '';
+            document.getElementById('customerEmail').value = req.email || '';
+            
+            // FILL CUSTOMER ID
+            document.getElementById('customerId').value = req.customer_id || '';
+            document.getElementById('requestId').value = req.request_id || '';
+            
+            document.getElementById('roomName').value = req.room_name || '';
+            document.getElementById('roomId').value = req.room_id || '';
+
+            if (req.requested_date) document.getElementById('bookingDate').value = req.requested_date.split('T')[0];
+            
+            if (req.start_time) {
+                let t = req.start_time.split(':').slice(0,2).join(':');
+                if(t.length === 4) t = "0"+t; // Pad "9:00" -> "09:00"
+                document.getElementById('startTime').value = t;
+            }
+            if (req.end_time) {
+                let t = req.end_time.split(':').slice(0,2).join(':');
+                if(t.length === 4) t = "0"+t;
+                document.getElementById('endTime').value = t;
+            }
+
+            calculateCost();
+        }
+
+        function calculateCost() {
+            const room = document.getElementById('roomName').value;
+            const start = document.getElementById('startTime').value;
+            const end = document.getElementById('endTime').value;
+            
+            if(!room || !start || !end) return;
+
+            const getHour = (t) => { const [h,m] = t.split(':').map(Number); return h + (m/60); };
+            const duration = getHour(end) - getHour(start);
+
+            if (duration <= 0) {
+                document.getElementById('costBreakdown').innerText = "Invalid Time";
+                return;
+            }
+
+            const rates = roomRates[room] || { hourly: 0, daily: 0, depositPct: 0 };
+            let cost = 0;
+            let type = "";
+
+            if (duration > 5) { cost = rates.daily; type = "Daily Rate"; }
+            else { cost = rates.hourly * duration; type = "Hourly Rate"; }
+
+            const deposit = cost * (rates.depositPct / 100);
+
+            // UI UPDATES
+            document.getElementById('totalDisplay').innerText = formatGBP(cost);
+            document.getElementById('totalAmount').value = cost.toFixed(2);
+            document.getElementById('payAmount').value = deposit.toFixed(2);
+            
+            document.getElementById('costBreakdown').innerText = `${type} | ${duration.toFixed(1)}hrs | Deposit ${rates.depositPct}%`;
+            document.getElementById('btnDeposit').innerHTML = `<i class="fa-solid fa-coins"></i> Pay Deposit (${formatGBP(deposit)})`;
+        }
+
+        async function submitBooking(type) {
+            const total = document.getElementById('totalAmount').value;
+            let payAmount = document.getElementById('payAmount').value;
+            const custId = document.getElementById('customerId').value;
+
+            // SAFETY CHECK
+            if(!custId) {
+                alert("Error: Missing Customer ID. Please re-select the request.");
+                return;
+            }
+
+            if (type === 'full') payAmount = total;
+
+            const btns = document.querySelectorAll('.btn');
+            btns.forEach(b => { b.disabled = true; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...'; });
+
+            // AVAILABILITY PRE-CHECK: Verify the slot is still free before processing payment
+            try {
+                const avRes = await fetch(CHECK_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify({
+                        roomName: document.getElementById('roomName').value,
+                        eventDate: document.getElementById('bookingDate').value,
+                        timeFrom: document.getElementById('startTime').value,
+                        timeTo: document.getElementById('endTime').value
+                    })
+                });
+                const avData = await avRes.json();
+                if (!avData.available) {
+                    btns.forEach(b => { b.disabled = false; b.innerText = 'Retry'; });
+                    alert('This time slot is no longer available. Please select a different date or time.');
+                    return;
+                }
+            } catch(avErr) {
+                btns.forEach(b => { b.disabled = false; b.innerText = 'Retry'; });
+                alert('Could not verify availability. Please try again.');
+                return;
+            }
+
+            const payload = {
+                customer_id: custId,
+                customer_name: document.getElementById('customerName').value,
+                customer_email: document.getElementById('customerEmail').value,
+                request_id: document.getElementById('requestId').value,
+                room_id: document.getElementById('roomId').value,
+                room_name: document.getElementById('roomName').value,
+                booking_date: document.getElementById('bookingDate').value,
+                start_time: document.getElementById('startTime').value,
+                end_time: document.getElementById('endTime').value,
+                total_amount: total,
+                payment_amount: payAmount,
+                payment_type: type === 'full' ? 'full' : 'deposit'
+            };
+
+            try {
+                const res = await fetch(BOOKING_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify(payload)
+                });
+
+                if (res.ok) {
+                    alert("Booking & Payment Successful!");
+                    window.location.href = "index.html"; // Redirect to dashboard
+                } else { throw new Error("Server Error"); }
+            } catch(e) {
+                alert("Failed to create booking.");
+                btns.forEach(b => { b.disabled = false; b.innerText = "Retry"; });
+            }
+        }
+
+        populateTimeDropdowns();
+        loadRequests();
+    </script>
+</body>
+</html>
