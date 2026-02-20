@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Calendar | Venue Manager Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- FullCalendar CSS -->
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+    
+    <script>
+        if (!localStorage.getItem('vp_token')) { window.location.href = 'login.html'; }
+    </script>
+
+    <style>
+        /* REUSE CORE STYLES */
+        :root { --bg-dark: #0f172a; --bg-card: rgba(30, 41, 59, 0.7); --border: rgba(148, 163, 184, 0.1); --primary: #6366f1; --success: #10b981; --warning: #f59e0b; --danger: #ef4444; --text-main: #f8fafc; --text-muted: #94a3b8; --sidebar-width: 260px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background-color: var(--bg-dark); background-image: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%); color: var(--text-main); min-height: 100vh; display: flex; overflow-x: hidden; }
+
+        aside { width: var(--sidebar-width); background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); border-right: 1px solid var(--border); padding: 2rem; display: flex; flex-direction: column; position: fixed; height: 100vh; z-index: 100; transition: transform 0.3s ease; }
+        .brand { font-size: 1.5rem; font-weight: 700; color: white; display: flex; align-items: center; justify-content: space-between; margin-bottom: 3rem; }
+        .nav-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: var(--text-muted); text-decoration: none; border-radius: 8px; margin-bottom: 5px; transition: all 0.2s; font-weight: 500; }
+        .nav-link:hover, .nav-link.active { background: rgba(99, 102, 241, 0.1); color: var(--primary); }
+        .close-sidebar { display: none; background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; }
+
+        main { margin-left: var(--sidebar-width); flex: 1; padding: 2rem; max-width: 1600px; width: 100%; transition: margin-left 0.3s ease; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        .menu-toggle { display: none; background: var(--bg-card); border: 1px solid var(--border); color: white; width: 40px; height: 40px; border-radius: 8px; align-items: center; justify-content: center; cursor: pointer; margin-right: 15px; }
+
+        /* CALENDAR STYLES */
+        #calendar { background: var(--bg-card); padding: 20px; border-radius: 16px; border: 1px solid var(--border); min-height: 700px; }
+        .fc { color: var(--text-main); }
+        .fc-toolbar-title { font-size: 1.5rem !important; font-weight: 700; }
+        .fc-button { background: var(--primary) !important; border: none !important; font-weight: 600 !important; border-radius: 8px !important; }
+        .fc-button:hover { background: #4f46e5 !important; }
+        .fc-day-today { background: rgba(99, 102, 241, 0.1) !important; }
+        .fc-event { cursor: pointer; border: none !important; padding: 4px; font-size: 0.85rem; border-radius: 6px; }
+        .fc-col-header-cell { background: #1e293b; padding: 10px 0; border: none !important; }
+        .fc-scrollgrid { border: 1px solid var(--border) !important; }
+        .fc-bg-event { opacity: 0.3; }
+
+        /* MODAL */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); z-index: 2000; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s ease; }
+        .modal-overlay.open { display: flex; opacity: 1; }
+        .modal-card { background: #1e293b; border: 1px solid var(--border); width: 90%; max-width: 500px; border-radius: 20px; padding: 2rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); transform: translateY(20px); transition: transform 0.3s ease; }
+        .modal-overlay.open .modal-card { transform: translateY(0); }
+        .modal-header { font-size: 1.2rem; font-weight: 700; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .modal-row { display: flex; justify-content: space-between; margin-bottom: 10px; color: var(--text-muted); font-size: 0.9rem; }
+        .modal-val { font-weight: 600; color: white; }
+        .close-btn { width: 100%; padding: 12px; background: var(--bg-dark); border: 1px solid var(--border); color: white; border-radius: 8px; margin-top: 1rem; cursor: pointer; }
+
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 90; backdrop-filter: blur(2px); }
+        .overlay.active { display: block; }
+
+        @media (max-width: 768px) {
+            aside { transform: translateX(-100%); } aside.active { transform: translateX(0); }
+            main { margin-left: 0; padding: 1rem; } .menu-toggle { display: flex; } .close-sidebar { display: block; }
+            #calendar { padding: 10px; min-height: 500px; }
+            .fc-toolbar { flex-direction: column; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+    <aside id="sidebar">
+        <div class="brand"><span><i class="fa-solid fa-layer-group"></i> VenuePro</span><button class="close-sidebar" onclick="toggleMenu()"><i class="fa-solid fa-xmark"></i></button></div>
+        <nav>
+            <a href="index.html" class="nav-link"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+            <a href="bookings.html" class="nav-link"><i class="fa-solid fa-calendar-days"></i> Bookings</a>
+            <a href="calendar.html" class="nav-link active"><i class="fa-solid fa-calendar-alt"></i> Calendar</a>
+            <a href="customers.html" class="nav-link"><i class="fa-solid fa-users"></i> Customers</a>
+            <a href="accounts.html" class="nav-link"><i class="fa-solid fa-file-invoice-dollar"></i> Accounts</a>
+            <a href="venuepro_booking.html" class="nav-link"><i class="fa-solid fa-building"></i> Event Booking</a>  
+            <a href="final-payment.html" class="nav-link"><i class="fa-solid fa-check-double"></i> Final Payment</a>  
+            <a href="users.html" class="nav-link"> <i class="fa-solid fa-user-shield"></i> Users</a>
+            <a href="#" onclick="logout()" class="nav-link" style="margin-top: auto; color: #ef4444; border-top: 1px solid rgba(255,255,255,0.05);"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+        </nav>
+    </aside>
+
+    <main>
+        <header>
+            <div style="display:flex; align-items:center;">
+                <button class="menu-toggle" onclick="toggleMenu()"><i class="fa-solid fa-bars"></i></button>
+                <h1 style="font-size: 1.8rem; font-weight: 700;">Event Calendar</h1>
+            </div>
+        </header>
+
+        <div id="calendar"></div>
+    </main>
+
+    <!-- EVENT MODAL -->
+    <div id="eventModal" class="modal-overlay" onclick="closeModal(event)">
+        <div class="modal-card" onclick="event.stopPropagation()">
+            <div class="modal-header" id="e-title">Event Title</div>
+            <div class="modal-row"><span>Time:</span> <span class="modal-val" id="e-time">--</span></div>
+            <div class="modal-row"><span>Room:</span> <span class="modal-val" id="e-room">--</span></div>
+            <div class="modal-row"><span>Status:</span> <span class="modal-val" id="e-status">--</span></div>
+            <button class="close-btn" onclick="closeModal()">Close</button>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://n8n.srv1090894.hstgr.cloud/webhook/all-bookings';
+
+        function getAuthHeaders() {
+            return { 'Authorization': 'Bearer ' + (localStorage.getItem('vp_token') || '') };
+        }
+
+        
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); }
+        function logout() { if(confirm("Log out?")) { localStorage.removeItem('vp_token'); window.location.href='login.html'; } }
+
+        function closeModal(e) { 
+            if(!e || e.target.id === 'eventModal' || e.target.innerText === 'Close') {
+                document.getElementById('eventModal').classList.remove('open');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            var calendarEl = document.getElementById('calendar');
+
+            try {
+                const res = await fetch(API_URL, { headers: getAuthHeaders() });
+                const json = await res.json();
+                const rawEvents = json.data || (Array.isArray(json) ? json : []);
+
+                console.log("Raw Events:", rawEvents); // Debugging
+
+                const events = rawEvents
+                    .filter(e => e.status !== 'cancelled' && e.booking_date) // Ensure date exists
+                    .map(e => {
+                        // Color Logic
+                        let color = '#6366f1'; 
+                        if(parseFloat(e.balance_due) > 0) color = '#f59e0b';
+                        if(new Date(e.booking_date) < new Date()) color = '#10b981';
+
+                        // Robust Time Formatting (Handle HH:MM vs HH:MM:SS)
+                        const startT = e.start_time ? e.start_time.slice(0,5) : '09:00';
+                        const endT = e.end_time ? e.end_time.slice(0,5) : '10:00';
+                        
+                        // Robust Title
+                        const title = `${e.customer_name || 'Guest'} (${e.room_name || 'Room'})`;
+
+                        return {
+                            title: title,
+                            start: `${e.booking_date.split('T')[0]}T${startT}:00`, // Ensure ISO format
+                            end: `${e.booking_date.split('T')[0]}T${endT}:00`,
+                            backgroundColor: color,
+                            borderColor: color,
+                            extendedProps: {
+                                room: e.room_name || 'Unknown',
+                                status: parseFloat(e.balance_due) > 0 ? 'Pending Payment' : 'Confirmed',
+                                time: `${startT} - ${endT}`
+                            }
+                        };
+                    });
+
+                var calendar = new FullCalendar.Calendar(calendarEl, {
+                    initialView: 'dayGridMonth',
+                    headerToolbar: {
+                        left: 'prev,next today',
+                        center: 'title',
+                        right: 'dayGridMonth,timeGridWeek,listWeek'
+                    },
+                    events: events,
+                    height: 'auto',
+                    eventClick: function(info) {
+                        const props = info.event.extendedProps;
+                        document.getElementById('e-title').innerText = info.event.title;
+                        document.getElementById('e-time').innerText = props.time;
+                        document.getElementById('e-room').innerText = props.room;
+                        document.getElementById('e-status').innerText = props.status;
+                        document.getElementById('eventModal').classList.add('open');
+                    }
+                });
+                calendar.render();
+
+            } catch (e) { console.error("Error loading calendar", e); }
+        });
+    </script>
+</body>
+</html>

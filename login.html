@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Login | VenuePro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --primary: #6366f1;
+            --border: rgba(148, 163, 184, 0.1);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: radial-gradient(at 50% 50%, #1e1b4b 0, #0f172a 50%, #020617 100%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 3rem;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+
+        .brand {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 2rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .brand i { color: var(--primary); }
+
+        .input-group { margin-bottom: 1.5rem; text-align: left; }
+        .input-group label { display: block; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem; font-weight: 600; text-transform: uppercase; }
+        
+        input {
+            width: 100%; padding: 14px 16px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: white; outline: none; font-size: 1rem;
+            transition: all 0.3s;
+        }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.2); }
+
+        button {
+            width: 100%; padding: 16px; margin-top: 1rem;
+            background: var(--primary);
+            border: none; border-radius: 12px;
+            color: white; font-size: 1rem; font-weight: 700;
+            cursor: pointer; transition: all 0.2s;
+        }
+        button:hover { background: #4f46e5; transform: translateY(-2px); }
+        button:disabled { opacity: 0.7; cursor: wait; }
+
+        .error-msg {
+            color: #ef4444; font-size: 0.9rem; margin-top: 1rem; display: none;
+            background: rgba(239, 68, 68, 0.1); padding: 10px; border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <div class="brand"><i class="fa-solid fa-layer-group"></i> VenuePro</div>
+        
+        <form id="loginForm" onsubmit="return false;">
+            <div class="input-group">
+                <label>Username</label>
+                <input type="text" id="username" placeholder="admin" required>
+            </div>
+            <div class="input-group">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="••••••••" required>
+            </div>
+            
+            <button type="submit" onclick="login()">Sign In</button>
+            <div id="errorBox" class="error-msg"></div>
+        </form>
+    </div>
+
+    <script>
+        // CONFIG: Add your n8n Login Webhook URL here (No Port if using Proxy)
+        const LOGIN_API = 'https://n8n.srv1090894.hstgr.cloud/webhook/login';
+
+        async function login() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            const btn = document.querySelector('button');
+            const err = document.getElementById('errorBox');
+
+            if (!user || !pass) return;
+
+            btn.disabled = true;
+            btn.innerText = "Verifying...";
+            err.style.display = 'none';
+
+            try {
+                const res = await fetch(LOGIN_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+
+                const data = await res.json();
+
+                if (data.token) {
+                    // SUCCESS: Save Token & Redirect
+                    localStorage.setItem('vp_token', data.token);
+                    localStorage.setItem('vp_user', JSON.stringify(data.user));
+                    window.location.href = 'index.html';
+                } else {
+                    throw new Error(data.message || 'Login failed');
+                }
+            } catch (e) {
+                console.error(e);
+                err.innerText = "Invalid Username or Password";
+                err.style.display = 'block';
+                btn.disabled = false;
+                btn.innerText = "Sign In";
+            }
+        }
+    </script>
+</body>
+</html>

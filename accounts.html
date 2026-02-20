@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Financials | Venue Manager Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+    // SECURITY CHECK: If no token, redirect to login immediately
+    if (!localStorage.getItem('vp_token')) {
+        window.location.href = 'login.html';
+    }
+    </script>
+    <style>
+        /* --- CORE STYLES --- */
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: rgba(30, 41, 59, 0.7);
+            --border: rgba(148, 163, 184, 0.1);
+            --primary: #6366f1; /* Neon Purple */
+            --success: #10b981; /* Neon Green */
+            --warning: #f59e0b; /* Neon Orange */
+            --danger: #ef4444;  /* Neon Red */
+            --info: #0ea5e9;    /* Neon Blue */
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --sidebar-width: 260px;
+        }
+
+        /* CUSTOM SCROLLBAR */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark); }
+        ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                              radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            overflow-x: hidden;
+        }
+
+        /* SIDEBAR */
+        aside {
+            width: var(--sidebar-width);
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid var(--border);
+            padding: 2rem;
+            display: flex; flex-direction: column; position: fixed; height: 100vh; z-index: 100;
+            transition: transform 0.3s ease;
+        }
+        .brand { font-size: 1.5rem; font-weight: 700; color: white; display: flex; align-items: center; justify-content: space-between; margin-bottom: 3rem; }
+        .nav-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: var(--text-muted); text-decoration: none; border-radius: 8px; margin-bottom: 5px; transition: all 0.2s; font-weight: 500; }
+        .nav-link:hover, .nav-link.active { background: rgba(99, 102, 241, 0.1); color: var(--primary); box-shadow: 0 0 15px rgba(99, 102, 241, 0.2); }
+        .close-sidebar { display: none; background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; }
+
+        /* MAIN CONTENT */
+        main {
+            margin-left: var(--sidebar-width);
+            flex: 1;
+            padding: 2rem;
+            max-width: 1600px;
+            width: 100%;
+            transition: margin-left 0.3s ease;
+        }
+
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        .menu-toggle { display: none; background: var(--bg-card); border: 1px solid var(--border); color: white; width: 40px; height: 40px; border-radius: 8px; align-items: center; justify-content: center; cursor: pointer; margin-right: 15px; }
+
+        /* KPI GRID */
+        .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2rem; }
+        
+        .kpi-card { 
+            background: var(--bg-card); 
+            padding: 1.5rem; 
+            border-radius: 16px; 
+            border: 1px solid var(--border); 
+            position: relative; overflow: hidden;
+            transition: transform 0.2s;
+        }
+        .kpi-card:hover { transform: translateY(-3px); border-color: var(--primary); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .kpi-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--color); }
+
+        .kpi-title { color: var(--text-muted); font-size: 0.9rem; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px; }
+        .kpi-val { font-size: 2.2rem; font-weight: 700; color: white; }
+
+        /* CHARTS GRID */
+        .charts-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+        
+        .chart-container { 
+            background: var(--bg-card); 
+            padding: 1.5rem; 
+            border-radius: 16px; 
+            border: 1px solid var(--border); 
+            position: relative; 
+            height: 350px; 
+            display: flex; flex-direction: column;
+        }
+        .chart-container h3 { margin-bottom: 1rem; font-size: 1.1rem; color: white; }
+
+        /* TRANSACTIONS */
+        .transaction-container {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem;
+        }
+        .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; max-height: 400px; }
+        
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        th { text-align: left; color: var(--text-muted); padding: 15px; border-bottom: 1px solid var(--border); text-transform: uppercase; font-size: 0.8rem; position: sticky; top: 0; background: #131b2e; }
+        td { padding: 15px; border-bottom: 1px solid var(--border); color: var(--text-main); font-size: 0.95rem; }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 90; backdrop-filter: blur(2px); }
+        .overlay.active { display: block; }
+
+        @media (max-width: 1200px) { .charts-grid { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) {
+            aside { transform: translateX(-100%); } aside.active { transform: translateX(0); }
+            main { margin-left: 0; padding: 1rem; } .menu-toggle { display: flex; } .close-sidebar { display: block; }
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+    
+    <aside id="sidebar">
+        <div class="brand"><span><i class="fa-solid fa-layer-group"></i> VenuePro</span><button class="close-sidebar" onclick="toggleMenu()"><i class="fa-solid fa-xmark"></i></button></div>
+        <nav>
+            <a href="index.html" class="nav-link"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+            <a href="bookings.html" class="nav-link"><i class="fa-solid fa-calendar-days"></i> Bookings</a>
+            <a href="customers.html" class="nav-link"><i class="fa-solid fa-users"></i> Customers</a>
+            <a href="accounts.html" class="nav-link active"><i class="fa-solid fa-file-invoice-dollar"></i> Accounts</a>
+            <a href="venuepro_booking.html" class="nav-link"><i class="fa-solid fa-building"></i> Event Booking</a> 
+            <a href="final-payment.html" class="nav-link"><i class="fa-solid fa-check-double"></i> Final Payment</a>
+            <a href="calendar.html" class="nav-link"> <i class="fa-solid fa-calendar-alt"></i> Calendar</a>
+            <a href="users.html" class="nav-link"> <i class="fa-solid fa-user-shield"></i> Users</a>    
+            <a href="#" onclick="logout()" class="nav-link" style="margin-top: auto; color: #ef4444; border-top: 1px solid rgba(255,255,255,0.05);">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout</a>       
+        </nav>
+    </aside>
+
+    <main>
+        <header>
+            <div style="display:flex; align-items:center;">
+                <button class="menu-toggle" onclick="toggleMenu()"><i class="fa-solid fa-bars"></i></button>
+                <h1 style="font-size: 1.8rem; font-weight: 700;">Financial Overview</h1>
+            </div>
+        </header>
+
+        <div class="kpi-grid">
+            <div class="kpi-card" style="--color: var(--success);">
+                <div class="kpi-title">Net Revenue (All Time)</div>
+                <div class="kpi-val" id="total-revenue">£0.00</div>
+            </div>
+            <div class="kpi-card" style="--color: var(--primary);">
+                <div class="kpi-title">Deposits Collected</div>
+                <div class="kpi-val" id="total-deposits">£0.00</div>
+            </div>
+            <div class="kpi-card" style="--color: var(--warning);">
+                <div class="kpi-title">Outstanding Balance</div>
+                <div class="kpi-val" id="total-outstanding">£0.00</div>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <!-- 1. Bar Chart (Revenue) -->
+            <div class="chart-container">
+                <h3><i class="fa-solid fa-chart-bar" style="color:var(--primary)"></i> Revenue Trends</h3>
+                <canvas id="barChart"></canvas>
+            </div>
+            
+            <!-- 2. Doughnut (Payment Status) -->
+            <div class="chart-container">
+                <h3><i class="fa-solid fa-wallet" style="color:var(--success)"></i> Payment Status</h3>
+                <canvas id="doughnutChart"></canvas>
+            </div>
+
+            <!-- 3. NEW Doughnut (Booking Health) -->
+            <div class="chart-container">
+                <h3><i class="fa-solid fa-heart-pulse" style="color:var(--info)"></i> Booking Health</h3>
+                <canvas id="healthChart"></canvas>
+            </div>
+        </div>
+
+        <div class="transaction-container">
+            <h3><i class="fa-solid fa-list" style="color:var(--text-muted)"></i> Recent Transactions</h3>
+            <div class="table-responsive">
+                <table class="transaction-table">
+                    <thead><tr><th>Date</th><th>Reference</th><th>Type</th><th>Amount</th><th>Status</th></tr></thead>
+                    <tbody id="trans-body">
+                        <tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted)">Loading transactions...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+
+        function logout() {
+         if(confirm("Are you sure you want to log out?")) {
+        // Clear the keys
+        localStorage.removeItem('vp_token');
+        localStorage.removeItem('vp_user');
+        // Redirect
+        window.location.href = 'login.html';
+    }
+}      
+        const formatGBP = (num) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(num);
+        const API_URL = 'https://n8n.srv1090894.hstgr.cloud/webhook/accounts-data';
+
+        function getAuthHeaders() {
+            return { 'Authorization': 'Bearer ' + (localStorage.getItem('vp_token') || '') };
+        }
+
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); }
+
+        async function loadAccounts() {
+            try {
+                const response = await fetch(API_URL, { headers: getAuthHeaders() });
+                const json = await response.json();
+                
+                // Robust data handling
+                const rootData = json.data || json;
+                const metrics = rootData.metrics || {};
+                const transactions = rootData.transactions || [];
+
+                // Parse Metrics
+                const revenue = parseFloat(metrics.total_revenue) || 0;
+                const deposits = parseFloat(metrics.deposits) || 0;
+                const outstanding = parseFloat(metrics.outstanding) || 0;
+                
+                // New Metrics for Health Chart
+                const countCompleted = parseInt(metrics.count_completed) || 0;
+                const countCancelled = parseInt(metrics.count_cancelled) || 0;
+
+                // 1. Update KPIs
+                document.getElementById('total-revenue').innerText = formatGBP(revenue);
+                document.getElementById('total-deposits').innerText = formatGBP(deposits);
+                document.getElementById('total-outstanding').innerText = formatGBP(outstanding);
+
+                // --- CHARTS CONFIG ---
+                Chart.defaults.color = '#94a3b8';
+                Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+
+                // 2. Chart: Payment Status (Paid vs Owed)
+                // Note: Total Revenue includes deposits + full payments + refunds. 
+                // We compare "Cash In Hand" (revenue) vs "Cash Owed" (outstanding)
+                new Chart(document.getElementById('doughnutChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Collected', 'Outstanding'],
+                        datasets: [{
+                            data: [revenue, outstanding],
+                            backgroundColor: ['#10b981', '#f59e0b'],
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom' } },
+                        cutout: '70%'
+                    }
+                });
+
+                // 3. Chart: Booking Health (Completed vs Cancelled)
+                new Chart(document.getElementById('healthChart'), {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Completed/Active', 'Cancelled'],
+                        datasets: [{
+                            data: [countCompleted, countCancelled],
+                            backgroundColor: ['#0ea5e9', '#ef4444'],
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'bottom' } },
+                        cutout: '70%'
+                    }
+                });
+
+                // 4. Chart: Revenue Bar (Mock Trend - SQL grouping by week requires complex query)
+                // For now, we visualize the splits
+                new Chart(document.getElementById('barChart'), {
+                    type: 'bar',
+                    data: {
+                        labels: ['Deposits', 'Outstanding', 'Net Revenue'],
+                        datasets: [{
+                            label: 'Amount (£)',
+                            data: [deposits, outstanding, revenue],
+                            backgroundColor: ['#6366f1', '#f59e0b', '#10b981'],
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        scales: { y: { grid: { color: '#334155' } }, x: { grid: { display: false } } },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+
+                // 5. Render Transactions
+                const tbody = document.getElementById('trans-body');
+                if (transactions.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:2rem; color:var(--text-muted)">No recent transactions</td></tr>`;
+                } else {
+                    tbody.innerHTML = transactions.map(t => {
+                        const amt = parseFloat(t.amount);
+                        const color = amt < 0 ? '#ef4444' : '#10b981'; // Red for refund, Green for income
+                        return `
+                        <tr>
+                            <td>${new Date(t.payment_date).toLocaleDateString()}</td>
+                            <td style="font-family:monospace; color:var(--primary);">${t.reference_number || '---'}</td>
+                            <td style="text-transform:capitalize">${t.payment_type}</td>
+                            <td style="font-weight:700; color:${color}">${formatGBP(amt)}</td>
+                            <td><span style="color:${color}; text-transform:uppercase; font-size:0.8rem;">${t.status}</span></td>
+                        </tr>
+                    `}).join('');
+                }
+
+            } catch (e) { console.error("Error loading accounts", e); }
+        }
+
+        loadAccounts();
+    </script>
+</body>
+</html>

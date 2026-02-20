@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Customers | Venue Manager Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        if (!localStorage.getItem('vp_token')) { window.location.href = 'login.html'; }
+    </script>
+
+    <style>
+        /* REUSED CORE STYLES */
+        :root { --bg-dark: #0f172a; --bg-card: rgba(30, 41, 59, 0.7); --border: rgba(148, 163, 184, 0.1); --primary: #6366f1; --success: #10b981; --warning: #f59e0b; --danger: #ef4444; --text-main: #f8fafc; --text-muted: #94a3b8; --sidebar-width: 260px; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background-color: var(--bg-dark); background-image: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%); color: var(--text-main); min-height: 100vh; display: flex; overflow-x: hidden; }
+        
+        aside { width: var(--sidebar-width); background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); border-right: 1px solid var(--border); padding: 2rem; display: flex; flex-direction: column; position: fixed; height: 100vh; z-index: 100; transition: transform 0.3s ease; }
+        .brand { font-size: 1.5rem; font-weight: 700; color: white; display: flex; align-items: center; justify-content: space-between; margin-bottom: 3rem; }
+        .nav-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: var(--text-muted); text-decoration: none; border-radius: 8px; margin-bottom: 5px; transition: all 0.2s; font-weight: 500; }
+        .nav-link:hover, .nav-link.active { background: rgba(99, 102, 241, 0.1); color: var(--primary); }
+        .close-sidebar { display: none; background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; }
+
+        main { margin-left: var(--sidebar-width); flex: 1; padding: 2rem; max-width: 1600px; width: 100%; transition: margin-left 0.3s ease; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; gap: 1rem; }
+        .header-left { display: flex; align-items: center; gap: 1rem; }
+        .menu-toggle { display: none; background: var(--bg-card); border: 1px solid var(--border); color: white; width: 40px; height: 40px; border-radius: 8px; align-items: center; justify-content: center; cursor: pointer; }
+        .header-title h1 { font-size: 1.8rem; font-weight: 700; }
+        
+        .search-bar { background: rgba(0,0,0,0.2); border: 1px solid var(--border); padding: 10px 16px; border-radius: 12px; color: white; display: flex; align-items: center; gap: 10px; width: 300px; transition: width 0.3s; }
+        .search-bar input { background: transparent; border: none; color: white; outline: none; width: 100%; font-size: 0.9rem; }
+
+        .table-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+        .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        th { text-align: left; padding: 1.2rem 1.5rem; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; font-weight: 600; background: rgba(0,0,0,0.2); border-bottom: 1px solid var(--border); }
+        td { padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border); color: var(--text-main); font-size: 0.95rem; vertical-align: middle; }
+        tr:last-child td { border-bottom: none; }
+        
+        tbody tr { cursor: pointer; transition: background 0.2s; }
+        tbody tr:hover { background: rgba(255,255,255,0.05) !important; }
+
+        /* BADGES */
+        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; display: inline-block; white-space: nowrap; }
+        .status-badge.pending { background: rgba(245, 158, 11, 0.15); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
+        .status-badge.contacted { background: rgba(99, 102, 241, 0.15); color: var(--primary); border: 1px solid rgba(99, 102, 241, 0.3); }
+        .status-badge.deposit_paid { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); } /* Maps to 'paid' visually if needed, using exact DB status here */
+        .status-badge.fully_paid { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+        .status-badge.balance { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+        .status-badge.cancelled { background: rgba(239, 68, 68, 0.1); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); text-decoration: line-through; }
+
+        /* MODAL */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); z-index: 2000; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s ease; }
+        .modal-overlay.open { display: flex; opacity: 1; }
+        .modal-card { background: #1e293b; border: 1px solid var(--border); width: 90%; max-width: 600px; border-radius: 20px; padding: 2rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); transform: translateY(20px); transition: transform 0.3s ease; position: relative; }
+        .modal-overlay.open .modal-card { transform: translateY(0); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+        .modal-title { font-size: 1.5rem; font-weight: 700; color: white; display: flex; align-items: center; gap: 10px; }
+        .modal-close { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; }
+        .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .detail-group label { display: block; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 5px; font-weight: 700; }
+        .detail-value { color: var(--text-main); font-size: 1rem; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid var(--border); }
+        
+        .modal-actions { margin-top: 2rem; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border); padding-top: 1rem; }
+        .btn-modal { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: 0.2s; text-decoration: none; }
+        .btn-close { background: var(--bg-card); color: var(--text-muted); border: 1px solid var(--border); }
+        .btn-close:hover { color: white; border-color: white; }
+        .btn-book { background: var(--success); color: #0f172a; display: flex; align-items: center; gap: 8px; }
+        .btn-pay { background: var(--warning); color: #0f172a; display: flex; align-items: center; gap: 8px; }
+        .btn-book:hover, .btn-pay:hover { opacity: 0.9; transform: translateY(-2px); }
+
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 90; backdrop-filter: blur(2px); }
+        .overlay.active { display: block; }
+
+        @media (max-width: 768px) { aside { transform: translateX(-100%); } aside.active { transform: translateX(0); } main { margin-left: 0; padding: 1rem; } .menu-toggle { display: flex; } .close-sidebar { display: block; } header { flex-direction: column; align-items: flex-start; gap: 1rem; } .search-bar { width: 100%; } .modal-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+    <aside id="sidebar">
+        <div class="brand"><span><i class="fa-solid fa-layer-group"></i> VenuePro</span><button class="close-sidebar" onclick="toggleMenu()"><i class="fa-solid fa-xmark"></i></button></div>
+        <nav>
+            <a href="index.html" class="nav-link"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+            <a href="bookings.html" class="nav-link"><i class="fa-solid fa-calendar-days"></i> Bookings</a>
+            <a href="customers.html" class="nav-link active"><i class="fa-solid fa-users"></i> Customers</a>
+            <a href="accounts.html" class="nav-link"><i class="fa-solid fa-file-invoice-dollar"></i> Accounts</a>
+            <a href="venuepro_booking.html" class="nav-link"><i class="fa-solid fa-building"></i> Event Booking</a>  
+            <a href="final-payment.html" class="nav-link"><i class="fa-solid fa-check-double"></i> Final Payment</a>  
+            <a href="calendar.html" class="nav-link"> <i class="fa-solid fa-calendar-alt"></i> Calendar</a>
+            <a href="users.html" class="nav-link"> <i class="fa-solid fa-user-shield"></i> Users</a>
+            <a href="#" onclick="logout()" class="nav-link" style="margin-top: auto; color: #ef4444; border-top: 1px solid rgba(255,255,255,0.05);"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+        </nav>
+    </aside>
+
+    <main>
+        <header>
+            <div class="header-left">
+                <button class="menu-toggle" onclick="toggleMenu()"><i class="fa-solid fa-bars"></i></button>
+                <div class="header-title"><h1>Client Database</h1><p style="color:var(--text-muted); font-size:0.9rem; margin-top:5px;">Manage your leads</p></div>
+            </div>
+            <div class="search-bar">
+                <i class="fa-solid fa-search" style="color:var(--text-muted)"></i>
+                <input type="text" id="searchInput" placeholder="Search name or email..." onkeyup="filterTable()">
+            </div>
+        </header>
+
+        <div class="table-container">
+            <div class="table-wrapper">
+                <table id="customerTable">
+                    <thead><tr><th>Name</th><th>Contact Info</th><th>Event Details</th><th>Date</th><th>Status</th></tr></thead>
+                    <tbody id="table-body">
+                        <tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--text-muted)"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL -->
+    <div id="custModal" class="modal-overlay" onclick="closeModal(event)">
+        <div class="modal-card" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fa-solid fa-id-card" style="color:var(--primary)"></i> Customer Details</div>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-grid">
+                <div class="detail-group" style="grid-column: span 2;"><label>Customer ID</label><div class="detail-value" id="m-id" style="font-family: monospace; color: var(--warning);">--</div></div>
+                <div class="detail-group"><label>Full Name</label><div class="detail-value" id="m-name">--</div></div>
+                <div class="detail-group"><label>Status</label><div class="detail-value" id="m-status" style="text-transform: uppercase;">--</div></div>
+                <div class="detail-group"><label>Email</label><div class="detail-value" id="m-email">--</div></div>
+                <div class="detail-group"><label>Phone</label><div class="detail-value" id="m-phone">--</div></div>
+                <div class="detail-group"><label>Event Type</label><div class="detail-value" id="m-event">--</div></div>
+                <div class="detail-group"><label>Date</label><div class="detail-value" id="m-date">--</div></div>
+                <!-- GUEST COUNT INCLUDED -->
+                <div class="detail-group"><label>Guests</label><div class="detail-value" id="m-guests">--</div></div>
+            </div>
+            <div class="modal-actions" id="modal-buttons">
+                <button class="btn-modal btn-close" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://n8n.srv1090894.hstgr.cloud/webhook/all-customers';
+
+        function getAuthHeaders() {
+            return { 'Authorization': 'Bearer ' + (localStorage.getItem('vp_token') || '') };
+        }
+
+
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); }
+        function logout() { if(confirm("Log out?")) { localStorage.removeItem('vp_token'); window.location.href='login.html'; } }
+
+        function openModal(dataString) {
+            const data = JSON.parse(decodeURIComponent(dataString));
+            document.getElementById('m-id').innerText = data.id || 'N/A';
+            document.getElementById('m-name').innerText = data.full_name || 'N/A';
+            document.getElementById('m-email').innerText = data.email || 'N/A';
+            document.getElementById('m-phone').innerText = data.phone || 'N/A';
+            document.getElementById('m-event').innerText = data.event_type || 'N/A';
+            document.getElementById('m-date').innerText = data.event_date ? new Date(data.event_date).toLocaleDateString() : 'N/A';
+            document.getElementById('m-status').innerText = data.status || 'N/A';
+            document.getElementById('m-guests').innerText = data.guests_count || '0';
+
+            const btnContainer = document.getElementById('modal-buttons');
+            let actionBtn = '';
+            
+            // Logic: REMOVED "Book Now" for pending. 
+            // Only show "Pay Balance" if they have paid a deposit (status: deposit_paid)
+            if (data.status === 'deposit_paid') {
+                 actionBtn = `<a href="final-payment.html" class="btn-modal btn-pay"><i class="fa-solid fa-credit-card"></i> Pay Balance</a>`;
+            }
+
+            btnContainer.innerHTML = actionBtn + `<button class="btn-modal btn-close" onclick="closeModal()">Close</button>`;
+            document.getElementById('custModal').classList.add('open');
+        }
+        function closeModal(e) { if(!e || e.target.id === 'custModal' || e.target.classList.contains('modal-close') || e.target.innerText === 'Close') document.getElementById('custModal').classList.remove('open'); }
+
+        async function loadData() {
+            try {
+                const response = await fetch(API_URL, { headers: getAuthHeaders() });
+                if (!response.ok) throw new Error("API Error");
+                const json = await response.json();
+                const customers = json.data || (Array.isArray(json) ? json : []); 
+                const tbody = document.getElementById('table-body');
+                
+                if (customers.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:3rem; color:var(--text-muted)">No customers found</td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = customers.map(c => {
+                    const dataStr = encodeURIComponent(JSON.stringify(c));
+                    // Status Badge Logic
+                    let badgeClass = c.status;
+                    if(c.status === 'deposit_paid') badgeClass = 'deposit_paid';
+                    if(c.status === 'fully_paid') badgeClass = 'paid';
+                    
+                    return `
+                    <tr onclick="openModal('${dataStr}')">
+                        <td><div style="font-weight:600; color:white;">${c.full_name}</div></td>
+                        <td><div>${c.email}</div><div style="font-size:0.8rem; color:var(--text-muted)">${c.phone || ''}</div></td>
+                        <td>${c.event_type || 'General'}</td>
+                        <td>${c.event_date ? new Date(c.event_date).toLocaleDateString() : 'N/A'}</td>
+                        <td><span class="status-badge ${badgeClass}">${c.status}</span></td>
+                    </tr>`;
+                }).join('');
+            } catch (e) {
+                console.error(e);
+                document.getElementById('table-body').innerHTML = `<tr><td colspan="5" style="text-align:center; padding:3rem; color:#ef4444">Connection Error</td></tr>`;
+            }
+        }
+
+        function filterTable() {
+            const input = document.getElementById("searchInput");
+            const filter = input.value.toUpperCase();
+            const table = document.getElementById("customerTable");
+            const tr = table.getElementsByTagName("tr");
+            for (let i = 0; i < tr.length; i++) {
+                let tdName = tr[i].getElementsByTagName("td")[0];
+                let tdEmail = tr[i].getElementsByTagName("td")[1];
+                if (tdName || tdEmail) {
+                    const txtName = tdName.textContent || tdName.innerText;
+                    const txtEmail = tdEmail.textContent || tdEmail.innerText;
+                    tr[i].style.display = (txtName.toUpperCase().indexOf(filter) > -1 || txtEmail.toUpperCase().indexOf(filter) > -1) ? "" : "none";
+                }
+            }
+        }
+        loadData();
+    </script>
+</body>
+</html>

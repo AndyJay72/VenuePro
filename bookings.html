@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Bookings | Venue Manager Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+    // SECURITY CHECK: If no token, redirect to login immediately
+    if (!localStorage.getItem('vp_token')) {
+        window.location.href = 'login.html';
+    }
+    </script>   
+    <style>
+        /* CORE VARIABLES */
+        :root { --bg-dark: #0f172a; --bg-card: rgba(30, 41, 59, 0.7); --border: rgba(148, 163, 184, 0.1); --primary: #6366f1; --success: #10b981; --warning: #f59e0b; --danger: #ef4444; --text-main: #f8fafc; --text-muted: #94a3b8; --sidebar-width: 260px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; display: flex; overflow-x: hidden; }
+
+        /* SIDEBAR */
+        aside { width: var(--sidebar-width); background: rgba(15, 23, 42, 0.95); border-right: 1px solid var(--border); padding: 2rem; display: flex; flex-direction: column; position: fixed; height: 100vh; z-index: 100; transition: transform 0.3s ease; }
+        .brand { font-size: 1.5rem; font-weight: 700; color: white; display: flex; align-items: center; justify-content: space-between; margin-bottom: 3rem; }
+        .nav-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: var(--text-muted); text-decoration: none; border-radius: 8px; margin-bottom: 5px; transition: all 0.2s; font-weight: 500; }
+        .nav-link:hover, .nav-link.active { background: rgba(99, 102, 241, 0.1); color: var(--primary); }
+        .close-sidebar { display: none; background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; }
+
+        /* MAIN */
+        main { margin-left: var(--sidebar-width); flex: 1; padding: 2rem; max-width: 1600px; width: 100%; transition: margin-left 0.3s ease; }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
+        .menu-toggle { display: none; background: var(--bg-card); border: 1px solid var(--border); color: white; width: 40px; height: 40px; border-radius: 8px; align-items: center; justify-content: center; cursor: pointer; margin-right: 15px; }
+
+        /* METRICS */
+        .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2.5rem; }
+        .metric-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; display: flex; align-items: center; gap: 1.5rem; position: relative; overflow: hidden; }
+        .dial-ring { width: 70px; height: 70px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; font-weight: 700; position: relative; background: rgba(15, 23, 42, 0.5); flex-shrink: 0; }
+        .dial-ring::before { content: ''; position: absolute; inset: -3px; border-radius: 50%; z-index: -1; background: conic-gradient(var(--card-color) var(--pct), rgba(255,255,255,0.1) 0); }
+        .card-pre { --card-color: var(--warning); } .card-booked { --card-color: var(--primary); } .card-post { --card-color: var(--success); }
+        .metric-info h3 { font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase; margin-bottom: 5px; }
+        
+        /* FILTERS */
+        .filter-bar { display: flex; gap: 10px; margin-bottom: 1.5rem; overflow-x: auto; padding-bottom: 5px; }
+        .filter-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; font-weight: 600; white-space: nowrap; transition: all 0.2s; }
+        .filter-btn:hover, .filter-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* BOOKING CARD */
+        .booking-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; transition: transform 0.2s; }
+        .b-left { display: flex; align-items: center; gap: 1.5rem; }
+        .date-badge { background: rgba(255,255,255,0.05); padding: 8px 15px; border-radius: 10px; text-align: center; min-width: 70px; border: 1px solid var(--border); }
+        .db-day { font-size: 1.2rem; font-weight: 700; color: white; }
+        .db-month { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); }
+        .b-details h4 { font-size: 1.1rem; color: white; margin: 0 0 4px 0; }
+        .b-meta { font-size: 0.9rem; color: var(--text-muted); display: flex; gap: 15px; flex-wrap: wrap; margin-top: 5px; }
+        
+        /* BUTTONS */
+        .pay-btn { background: var(--success); color: #0f172a; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 0.8rem; margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; }
+        .cancel-btn { background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 0.8rem; margin-left: 10px; display: inline-flex; align-items: center; gap: 5px; }
+        .status-pill { padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; white-space: nowrap; }
+        
+        /* STATUS COLORS */
+        .status-pre { background: rgba(245, 158, 11, 0.15); color: var(--warning); border: 1px solid var(--warning); }
+        .status-booked { background: rgba(99, 102, 241, 0.15); color: var(--primary); border: 1px solid var(--primary); }
+        .status-completed { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid var(--success); }
+        .status-cancelled { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid var(--danger); }
+
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 90; backdrop-filter: blur(2px); }
+        .overlay.active { display: block; }
+
+        @media (max-width: 1024px) { .metrics-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) {
+            aside { transform: translateX(-100%); } aside.active { transform: translateX(0); }
+            main { margin-left: 0; padding: 1rem; } .menu-toggle { display: flex; } .close-sidebar { display: block; }
+            .booking-card { flex-direction: column; align-items: flex-start; gap: 1rem; } .b-left { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+    <aside id="sidebar">
+        <div class="brand"><span><i class="fa-solid fa-layer-group"></i> VenuePro</span><button class="close-sidebar" onclick="toggleMenu()"><i class="fa-solid fa-xmark"></i></button></div>
+        <nav>
+            <a href="index.html" class="nav-link"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+            <a href="bookings.html" class="nav-link active"><i class="fa-solid fa-calendar-days"></i> Bookings</a>
+            <a href="customers.html" class="nav-link"><i class="fa-solid fa-users"></i> Customers</a>
+            <a href="accounts.html" class="nav-link"><i class="fa-solid fa-file-invoice-dollar"></i> Accounts</a>
+            <a href="venuepro_booking.html" class="nav-link"><i class="fa-solid fa-building"></i> Event Booking</a>
+            <a href="final-payment.html" class="nav-link"><i class="fa-solid fa-check-double"></i> Final Payment</a>
+            <a href="calendar.html" class="nav-link"> <i class="fa-solid fa-calendar-alt"></i> Calendar</a>
+            <a href="users.html" class="nav-link"> <i class="fa-solid fa-user-shield"></i> Users</a>    
+            <a href="#" onclick="logout()" class="nav-link" style="margin-top: auto; color: #ef4444; border-top: 1px solid rgba(255,255,255,0.05);">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout</a>            
+        </nav>
+    </aside>
+    <main>
+        <header>
+            <div style="display:flex; align-items:center;">
+                <button class="menu-toggle" onclick="toggleMenu()"><i class="fa-solid fa-bars"></i></button>
+                <h1 style="font-size: 1.8rem; font-weight: 700;">Booking Management</h1>
+            </div>
+        </header>
+        <div class="metrics-grid">
+            <div class="metric-card card-pre"><div class="dial-ring" id="dial-pre" style="--pct: 0%;">0</div><div class="metric-info"><h3>Pre-Booked</h3><p>Deposit paid</p></div></div>
+            <div class="metric-card card-booked"><div class="dial-ring" id="dial-booked" style="--pct: 0%;">0</div><div class="metric-info"><h3>Confirmed</h3><p>Fully paid</p></div></div>
+            <div class="metric-card card-post"><div class="dial-ring" id="dial-post" style="--pct: 0%;">0</div><div class="metric-info"><h3>Completed</h3><p>Past events</p></div></div>
+        </div>
+        <div class="filter-bar">
+            <!-- UPDATED: Added Cancelled Tab -->
+            <button class="filter-btn active" onclick="filterList('all', this)">All Bookings</button>
+            <button class="filter-btn" onclick="filterList('pre', this)">Pre-Booked</button>
+            <button class="filter-btn" onclick="filterList('booked', this)">Confirmed</button>
+            <button class="filter-btn" onclick="filterList('post', this)">Completed</button>
+            <button class="filter-btn" onclick="filterList('cancelled', this)" style="color:var(--danger); border-color:var(--danger);">Cancelled</button>
+        </div>
+        <div id="booking-container"><div style="text-align: center; padding: 2rem; color: var(--text-muted);"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading data...</div></div>
+    </main>
+    <script>
+        function logout() {
+           if(confirm("Are you sure you want to log out?")) {
+           // Clear the keys
+           localStorage.removeItem('vp_token');
+           localStorage.removeItem('vp_user');
+           // Redirect
+           window.location.href = 'login.html';
+          }
+        }        
+        const API_URL = 'https://n8n.srv1090894.hstgr.cloud/webhook/all-bookings';
+        const PAY_URL = 'https://n8n.srv1090894.hstgr.cloud/webhook/pay-balance';
+        const CANCEL_URL = 'https://n8n.srv1090894.hstgr.cloud/webhook/cancel-booking';
+
+        function getAuthHeaders() {
+            return { 'Authorization': 'Bearer ' + (localStorage.getItem('vp_token') || '') };
+        }
+
+        
+        let allBookings = [];
+        const formatCurrency = (num) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(num || 0);
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); }
+
+        async function fetchBookings() {
+            try {
+                const res = await fetch(API_URL, { headers: getAuthHeaders() });
+                const json = await res.json();
+                const rawData = json.data || (Array.isArray(json) ? json : []);
+                const now = new Date(); now.setHours(0,0,0,0); 
+
+                allBookings = rawData.map(b => {
+                    const bDate = new Date(b.booking_date);
+                    const balance = parseFloat(b.balance_due || 0);
+                    let category = 'pre';
+                    
+                    // LOGIC UPDATED: Check status FIRST
+                    if (b.status === 'cancelled') {
+                        category = 'cancelled';
+                    } else if (bDate < now) {
+                        category = 'post';
+                    } else if (balance <= 0) {
+                        category = 'booked';
+                    } else {
+                        category = 'pre';
+                    }
+
+                    return { ...b, category, dateObj: bDate, balanceNum: balance };
+                });
+                updateMetrics();
+                filterList('all', document.querySelector('.filter-btn.active')); 
+            } catch (e) { console.error(e); }
+        }
+
+        async function cancelBooking(id, name) {
+            if(!confirm(`Are you sure you want to CANCEL the booking for ${name}? This will refund payments and remove it from the calendar.`)) return;
+            
+            try {
+                const res = await fetch(CANCEL_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify({ booking_id: id })
+                });
+                const result = await res.json();
+                if(result.status === 'success') { alert("Booking Cancelled"); fetchBookings(); } 
+                else { alert("Error cancelling"); }
+            } catch(e) { alert("Connection Error"); }
+        }
+
+        async function payBalance(id, customerId, balance) {
+            const amount = prompt(`Enter payment amount (Balance Due: £${balance})`, balance);
+            if (!amount) return;
+            const parsedAmount = parseFloat(amount);
+            if (isNaN(parsedAmount) || parsedAmount <= 0) { alert("Invalid amount. Must be a positive number."); return; }
+            if (parsedAmount > parseFloat(balance) + 0.01) { alert(`Amount cannot exceed the balance due of £${balance}.`); return; }
+            try {
+                const res = await fetch(PAY_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify({ booking_id: id, customer_id: customerId, amount: amount })
+                });
+                const result = await res.json();
+                if(result.status === 'success' || result.status === 'partial') { alert("Payment Recorded!"); fetchBookings(); }
+            } catch(e) { alert("Connection Failed"); }
+        }
+
+        function updateMetrics() {
+            const counts = { pre: 0, booked: 0, post: 0 };
+            allBookings.forEach(b => { if(counts[b.category] !== undefined) counts[b.category]++; });
+            const total = allBookings.length || 1;
+            ['pre','booked','post'].forEach(k => {
+                const el = document.getElementById(`dial-${k}`);
+                if(el) { el.innerText = counts[k]; el.style.setProperty('--pct', `${(counts[k]/total)*100}%`); }
+            });
+        }
+
+        function filterList(filterType, btnElement) {
+            if (btnElement) { document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active')); btnElement.classList.add('active'); }
+            
+            const filtered = filterType === 'all' ? allBookings : allBookings.filter(b => b.category === filterType);
+            filtered.sort((a, b) => filterType === 'post' ? b.dateObj - a.dateObj : a.dateObj - b.dateObj);
+            
+            const container = document.getElementById('booking-container');
+            if (filtered.length === 0) { container.innerHTML = `<div style="text-align:center; padding:3rem; color:var(--text-muted);">No bookings found.</div>`; return; }
+
+            container.innerHTML = filtered.map(b => {
+                let statusInfo = { text: 'Pending Balance', cls: 'status-pre', color: 'var(--warning)' };
+                if(b.category === 'booked') statusInfo = { text: 'Confirmed', cls: 'status-booked', color: 'var(--primary)' };
+                else if(b.category === 'post') statusInfo = { text: 'Completed', cls: 'status-completed', color: 'var(--success)' };
+                else if(b.category === 'cancelled') statusInfo = { text: 'Cancelled', cls: 'status-cancelled', color: 'var(--danger)' };
+
+                let actions = '';
+                // Add Pay button if Pre-Booked
+                if(b.category === 'pre') actions += `<button class="pay-btn" onclick="payBalance('${b.id}', '${b.customer_id}', ${b.balanceNum})"><i class="fa-solid fa-credit-card"></i> Pay</button>`;
+                
+                // Add Cancel button if Pre or Booked (Active events)
+                if(b.category === 'pre' || b.category === 'booked') {
+                    actions += `<button class="cancel-btn" onclick="cancelBooking('${b.id}', '${b.customer_name}')"><i class="fa-solid fa-trash"></i> Cancel</button>`;
+                }
+
+                return `<div class="booking-card" style="border-left: 4px solid ${statusInfo.color}">
+                    <div class="b-left">
+                        <div class="date-badge"><div class="db-day">${b.dateObj.getDate()}</div><div class="db-month">${b.dateObj.toLocaleString('default', { month: 'short' })}</div></div>
+                        <div class="b-details">
+                            <h4>${b.customer_name || 'Guest'}</h4>
+                            <div class="b-meta">
+                                <span><i class="fa-solid fa-layer-group"></i> ${b.room_name}</span>
+                                <span><i class="fa-solid fa-clock"></i> ${b.start_time?.slice(0,5)} - ${b.end_time?.slice(0,5)}</span>
+                                <span style="color: ${b.balanceNum > 0 ? '#f59e0b' : '#10b981'}"><i class="fa-solid fa-sterling-sign"></i> Total: ${formatCurrency(b.total_amount)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div class="status-pill ${statusInfo.cls}">${statusInfo.text}</div>
+                        ${actions}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchBookings);
+    </script>
+</body>
+</html>

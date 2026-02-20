@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dashboard | Venue Manager Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script>
+        // SECURITY CHECK
+        if (!localStorage.getItem('vp_token')) { window.location.href = 'login.html'; }
+    </script>
+
+    <style>
+        /* --- CORE STYLES --- */
+        :root {
+            --bg-dark: #0f172a;
+            --bg-card: rgba(30, 41, 59, 0.7);
+            --border: rgba(148, 163, 184, 0.1);
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --sidebar-width: 260px;
+        }
+
+        /* CUSTOM SCROLLBARS */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+
+        body {
+            background-color: var(--bg-dark);
+            background-image: radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+                              radial-gradient(at 50% 0%, hsla(225,39%,30%,1) 0, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            overflow-x: hidden;
+        }
+
+        /* --- SIDEBAR --- */
+        aside { width: var(--sidebar-width); background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); border-right: 1px solid var(--border); padding: 2rem; display: flex; flex-direction: column; position: fixed; height: 100vh; z-index: 100; transition: transform 0.3s ease; }
+        .brand { font-size: 1.5rem; font-weight: 700; color: white; display: flex; align-items: center; justify-content: space-between; margin-bottom: 3rem; }
+        .nav-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: var(--text-muted); text-decoration: none; border-radius: 8px; margin-bottom: 5px; transition: all 0.2s; font-weight: 500; }
+        .nav-link:hover, .nav-link.active { background: rgba(99, 102, 241, 0.1); color: var(--primary); }
+        .close-sidebar { display: none; background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; }
+
+        /* --- MAIN CONTENT --- */
+        main { margin-left: var(--sidebar-width); flex: 1; padding: 2rem; max-width: 1600px; width: 100%; transition: margin-left 0.3s ease; }
+
+        /* --- HEADER --- */
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2.5rem; flex-wrap: wrap; gap: 1rem; }
+        .header-title h1 { font-size: 1.8rem; font-weight: 700; margin: 0; }
+        .header-title p { color: var(--text-muted); font-size: 0.9rem; margin-top: 5px; }
+        
+        .header-left { display: flex; align-items: center; gap: 1rem; }
+        .header-right { display: flex; align-items: center; gap: 15px; }
+
+        .menu-toggle { display: none; background: var(--bg-card); border: 1px solid var(--border); color: white; width: 40px; height: 40px; border-radius: 8px; align-items: center; justify-content: center; cursor: pointer; }
+
+        .live-clock { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--text-muted); background: rgba(0,0,0,0.3); border: 1px solid var(--border); padding: 10px 15px; border-radius: 8px; display: flex; align-items: center; gap: 8px; }
+        .live-clock i { color: var(--primary); }
+        .refresh-btn { background: var(--bg-card); border: 1px solid var(--border); color: var(--text-muted); padding: 10px 16px; border-radius: 8px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; font-weight: 600; height: 100%; }
+        .refresh-btn:hover { background: rgba(255,255,255,0.05); color: white; }
+
+        /* --- KPI CARDS --- */
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 2.5rem; }
+        .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 1.5rem; position: relative; overflow: hidden; }
+        .card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: linear-gradient(90deg, var(--primary), transparent); }
+        .stat-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+        .stat-value { font-size: 2.5rem; font-weight: 700; color: white; margin-bottom: 0.5rem; }
+
+        /* --- TABLES --- */
+        .grid-split { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 1.5rem; }
+        .table-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; height: 100%; }
+        .table-header { padding: 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.4); }
+        .table-wrapper { overflow-y: auto; overflow-x: auto; max-height: 450px; }
+        
+        table { width: 100%; border-collapse: collapse; min-width: 600px; }
+        th { text-align: left; padding: 1rem 1.5rem; color: var(--text-muted); font-size: 0.8rem; text-transform: uppercase; font-weight: 600; background: #182235; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
+        td { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); color: var(--text-main); font-size: 0.95rem; vertical-align: middle; }
+        
+        tbody tr { cursor: pointer; transition: background 0.2s; }
+        tbody tr:hover { background: rgba(255,255,255,0.05) !important; }
+
+        /* --- BADGES --- */
+        .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; display: inline-flex; align-items: center; white-space: nowrap; }
+        .status-badge.pending { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+        .status-badge.contacted { background: rgba(99, 102, 241, 0.15); color: var(--primary); }
+        .status-badge.paid { background: rgba(16, 185, 129, 0.15); color: var(--success); }
+        .status-badge.balance { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+        .status-badge.cancelled { background: rgba(239, 68, 68, 0.1); color: #f87171; text-decoration: line-through; }
+
+        .btn-action { background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; white-space: nowrap; transition: 0.2s; }
+        .btn-action:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .btn-action:disabled { background: var(--border); color: var(--text-muted); cursor: not-allowed; transform: none; }
+
+        /* --- MODAL --- */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); z-index: 2000; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s ease; }
+        .modal-overlay.open { display: flex; opacity: 1; }
+        .modal-card { background: #1e293b; border: 1px solid var(--border); width: 90%; max-width: 600px; border-radius: 20px; padding: 2rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); transform: translateY(20px); transition: transform 0.3s ease; position: relative; }
+        .modal-overlay.open .modal-card { transform: translateY(0); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+        .modal-title { font-size: 1.5rem; font-weight: 700; color: white; display: flex; align-items: center; gap: 10px; }
+        .modal-close { background: none; border: none; color: var(--text-muted); font-size: 1.5rem; cursor: pointer; }
+        .modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+        .detail-group label { display: block; color: var(--text-muted); font-size: 0.75rem; text-transform: uppercase; margin-bottom: 5px; font-weight: 700; }
+        .detail-value { color: var(--text-main); font-size: 1rem; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; border: 1px solid var(--border); }
+        
+        .modal-actions { margin-top: 2rem; display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border); padding-top: 1rem; }
+        .btn-modal { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; font-size: 0.9rem; transition: 0.2s; text-decoration: none; }
+        .btn-close { background: var(--bg-card); color: var(--text-muted); border: 1px solid var(--border); }
+        .btn-close:hover { color: white; border-color: white; }
+        .btn-book { background: var(--success); color: #0f172a; display: flex; align-items: center; gap: 8px; }
+        .btn-pay { background: var(--warning); color: #0f172a; display: flex; align-items: center; gap: 8px; }
+        .btn-book:hover, .btn-pay:hover { opacity: 0.9; transform: translateY(-2px); }
+
+        /* --- TOAST & OVERLAY --- */
+        #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1000; pointer-events: none; }
+        .toast { background: #1e293b; color: white; padding: 1rem 1.5rem; border-radius: 8px; margin-top: 10px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); border-left: 4px solid var(--primary); display: flex; align-items: center; gap: 12px; animation: slideIn 0.3s ease; min-width: 300px; pointer-events: auto; }
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--danger); }
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 90; backdrop-filter: blur(2px); }
+        .overlay.active { display: block; }
+
+        @media (max-width: 1200px) { .grid-split { grid-template-columns: 1fr; } }
+        @media (max-width: 900px) { .stats-grid { grid-template-columns: 1fr; } .modal-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 768px) { aside { transform: translateX(-100%); } aside.active { transform: translateX(0); } main { margin-left: 0; padding: 1.5rem 1rem; } .menu-toggle { display: flex; } .close-sidebar { display: block; } .header-left { width: 100%; } .header-right { width: 100%; justify-content: space-between; margin-top: 10px; } .live-clock { flex: 1; justify-content: center; } }
+    </style>
+</head>
+<body>
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+    <aside id="sidebar">
+        <div class="brand"><span><i class="fa-solid fa-layer-group"></i> VenuePro</span><button class="close-sidebar" onclick="toggleMenu()"><i class="fa-solid fa-xmark"></i></button></div>
+        <nav>
+            <a href="index.html" class="nav-link active"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+            <a href="bookings.html" class="nav-link"><i class="fa-solid fa-calendar-days"></i> Bookings</a>
+            <a href="customers.html" class="nav-link"><i class="fa-solid fa-users"></i> Customers</a>
+            <a href="accounts.html" class="nav-link"><i class="fa-solid fa-file-invoice-dollar"></i> Accounts</a>
+            <a href="venuepro_booking.html" class="nav-link"><i class="fa-solid fa-building"></i> Event Booking</a>  
+            <a href="final-payment.html" class="nav-link"><i class="fa-solid fa-check-double"></i> Final Payment</a>
+            <!-- ADDED CALENDAR LINK -->
+            <a href="calendar.html" class="nav-link"><i class="fa-solid fa-calendar-alt"></i> Calendar</a>
+            <a href="users.html" class="nav-link"><i class="fa-solid fa-user-shield"></i> Users</a>
+            <a href="#" onclick="logout()" class="nav-link" style="margin-top: auto; color: #ef4444; border-top: 1px solid rgba(255,255,255,0.05);"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+        </nav>
+    </aside>
+
+    <main>
+        <header>
+            <div class="header-left">
+                <button class="menu-toggle" onclick="toggleMenu()"><i class="fa-solid fa-bars"></i></button>
+                <div class="header-title"><h1>Overview</h1><p>Welcome back, Staff Manager</p></div>
+            </div>
+            <div class="header-right">
+                <div class="live-clock"><i class="far fa-clock"></i> <span id="clock-text">--:--</span></div>
+                <button class="refresh-btn" onclick="loadDashboard()"><i class="fa-solid fa-rotate-right" id="refresh-icon"></i> <span style="display:none; @media(min-width:768px){display:inline;}">Refresh</span></button>
+            </div>
+        </header>
+
+        <div class="stats-grid">
+            <div class="card"><div class="stat-header"><span class="stat-label">Monthly Revenue</span><div class="stat-icon" style="color: var(--success);"><i class="fa-solid fa-sterling-sign"></i></div></div><div class="stat-value" id="val-revenue">--</div></div>
+            <div class="card"><div class="stat-header"><span class="stat-label">Pending Reviews</span><div class="stat-icon" style="color: var(--warning);"><i class="fa-solid fa-clipboard-list"></i></div></div><div class="stat-value" id="val-pending">--</div></div>
+            <div class="card"><div class="stat-header"><span class="stat-label">Tasks Completed</span><div class="stat-icon" style="color: var(--primary);"><i class="fa-solid fa-check-double"></i></div></div><div class="stat-value" id="val-contacted">--</div></div>
+        </div>
+
+        <div class="grid-split">
+            <!-- REQUESTS -->
+            <div class="table-container">
+                <div class="table-header"><h3 style="color: var(--warning);"><i class="fa-solid fa-inbox"></i> New Requests</h3></div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Customer</th><th>Event Type</th><th>Guests</th><th>Status</th><th style="text-align: right;">Action</th></tr></thead>
+                        <tbody id="table-requests"></tbody>
+                    </table>
+                </div>
+            </div>
+            <!-- BOOKINGS -->
+            <div class="table-container">
+                <div class="table-header"><h3 style="color: var(--success);"><i class="fa-solid fa-calendar-check"></i> Upcoming Events</h3></div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th>Date</th><th>Customer</th><th>Room</th><th>Balance</th></tr></thead>
+                        <tbody id="table-bookings"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL -->
+    <div id="custModal" class="modal-overlay" onclick="closeModal(event)">
+        <div class="modal-card" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fa-solid fa-id-card" style="color:var(--primary)"></i> Customer Details</div>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-grid">
+                <div class="detail-group" style="grid-column: span 2;"><label>Customer ID</label><div class="detail-value" id="m-id" style="font-family: monospace; color: var(--warning);">--</div></div>
+                <div class="detail-group"><label>Full Name</label><div class="detail-value" id="m-name">--</div></div>
+                <div class="detail-group"><label>Status</label><div class="detail-value" id="m-status" style="text-transform: uppercase;">--</div></div>
+                <div class="detail-group"><label>Email</label><div class="detail-value" id="m-email">--</div></div>
+                <div class="detail-group"><label>Phone</label><div class="detail-value" id="m-phone">--</div></div>
+                <div class="detail-group"><label>Event Type</label><div class="detail-value" id="m-event">--</div></div>
+                <div class="detail-group"><label>Date</label><div class="detail-value" id="m-date">--</div></div>
+                <div class="detail-group"><label>Guests</label><div class="detail-value" id="m-guests">--</div></div>
+            </div>
+            <div class="modal-actions" id="modal-buttons">
+                <button class="btn-modal btn-close" onclick="closeModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast-container"></div>
+
+    <script>
+        const DASHBOARD_WEBHOOK_URL = 'https://n8n.srv1090894.hstgr.cloud/webhook/staff-dashboard';
+        const UPDATE_STATUS_URL = 'https://n8n.srv1090894.hstgr.cloud/webhook/update-status';
+
+        function getAuthHeaders() {
+            return { 'Authorization': 'Bearer ' + (localStorage.getItem('vp_token') || '') };
+        }
+
+        const STAFF_NAME = "Manager";
+
+        const formatCurrency = (num) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(num);
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); }
+        function logout() { if(confirm("Log out?")) { localStorage.removeItem('vp_token'); window.location.href='login.html'; } }
+
+        function openModal(dataString) {
+            const data = JSON.parse(decodeURIComponent(dataString));
+            document.getElementById('m-id').innerText = data.id || 'N/A';
+            document.getElementById('m-name').innerText = data.full_name || 'N/A';
+            document.getElementById('m-email').innerText = data.email || 'N/A';
+            document.getElementById('m-phone').innerText = data.phone || 'N/A';
+            document.getElementById('m-event').innerText = data.event_type || 'N/A';
+            document.getElementById('m-date').innerText = data.event_date ? new Date(data.event_date).toLocaleDateString() : 'N/A';
+            document.getElementById('m-status').innerText = data.status || 'N/A';
+            document.getElementById('m-guests').innerText = data.guests_count || '0';
+
+            const btnContainer = document.getElementById('modal-buttons');
+            let actionBtn = '';
+            
+            if (data.status === 'pending' || data.status === 'contacted') {
+                actionBtn = `<a href="venuepro_booking.html" class="btn-modal btn-book"><i class="fa-solid fa-calendar-check"></i> Book Now</a>`;
+            } else if (data.status === 'deposit_paid') {
+                 actionBtn = `<a href="final-payment.html" class="btn-modal btn-pay"><i class="fa-solid fa-credit-card"></i> Pay Balance</a>`;
+            }
+
+            btnContainer.innerHTML = actionBtn + `<button class="btn-modal btn-close" onclick="closeModal()">Close</button>`;
+            document.getElementById('custModal').classList.add('open');
+        }
+        function closeModal(e) { if(!e || e.target.id === 'custModal' || e.target.classList.contains('modal-close') || e.target.innerText === 'Close') document.getElementById('custModal').classList.remove('open'); }
+
+        async function loadDashboard() {
+            const refreshIcon = document.getElementById('refresh-icon');
+            refreshIcon.classList.add('fa-spin');
+            try {
+                const response = await fetch(DASHBOARD_WEBHOOK_URL, { headers: getAuthHeaders() });
+                if (!response.ok) throw new Error(`Request failed`);
+                const json = await response.json();
+                const data = json.data || json;
+
+                const metrics = data.metrics || {};
+                document.getElementById('val-revenue').innerText = formatCurrency(metrics.total_revenue_month || 0);
+                document.getElementById('val-pending').innerText = metrics.pending_requests || 0;
+                document.getElementById('val-contacted').innerText = metrics.contacted_today || 0;
+
+                // REQUESTS
+                const reqBody = document.getElementById('table-requests');
+                let requests = data.recent_customers || [];
+                requests = requests.filter(c => c.status === 'pending');
+
+                // SAFE DEDUPLICATION FOR REQUESTS
+                const uniqueRequests = [];
+                const seenReqIds = new Set();
+                requests.forEach(r => {
+                    const key = r.id || (r.full_name + r.event_date);
+                    if (!seenReqIds.has(key)) {
+                        seenReqIds.add(key);
+                        uniqueRequests.push(r);
+                    }
+                });
+
+                if (uniqueRequests.length === 0) {
+                    reqBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding: 2rem;">No new pending requests</td></tr>`;
+                } else {
+                    reqBody.innerHTML = uniqueRequests.map(c => {
+                        const dataStr = encodeURIComponent(JSON.stringify(c));
+                        return `
+                        <tr onclick="openModal('${dataStr}')">
+                            <td><div style="font-weight: 600;">${c.full_name}</div><div style="font-size: 0.8rem; color: var(--text-muted);">${new Date(c.event_date).toLocaleDateString()}</div></td>
+                            <td>${c.event_type}</td>
+                            <td><i class="fa-solid fa-user-group" style="font-size: 0.7rem; margin-right:5px"></i> ${c.guests_count}</td>
+                            <td><span class="status-badge pending">${c.status}</span></td>
+                            <td style="text-align: right;">
+                                <button id="btn-${c.id}" class="btn-action" style="margin-left: auto;" onclick="event.stopPropagation(); markContacted('${c.id}', '${c.full_name.replace(/'/g, "\\'")}')">
+                                    <i class="fa-solid fa-check"></i> Accept
+                                </button>
+                            </td>
+                        </tr>`;
+                    }).join('');
+                }
+
+                // UPCOMING BOOKINGS (SAFE DEDUPLICATION)
+                const bookBody = document.getElementById('table-bookings');
+                bookBody.innerHTML = ''; 
+
+                const bookings = data.upcoming_bookings || [];
+                const uniqueBookings = [];
+                const seenBookKeys = new Set();
+
+                bookings.forEach(b => {
+                    // Safe Key Logic: Use ID if present, otherwise Name+Date+Time, otherwise Random fallback to show data
+                    const key = b.id || (b.customer_name + b.booking_date + b.room_name) || Math.random();
+                    
+                    if (!seenBookKeys.has(key)) {
+                        seenBookKeys.add(key);
+                        uniqueBookings.push(b);
+                    }
+                });
+
+                if (uniqueBookings.length === 0) {
+                    bookBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 2rem;">No upcoming events</td></tr>`;
+                } else {
+                    bookBody.innerHTML = uniqueBookings.map(b => `
+                        <tr>
+                            <td><div style="font-weight: 600;">${new Date(b.booking_date).toLocaleDateString('en-GB', {day: 'numeric', month: 'short'})}</div><div style="font-size: 0.8rem; color: var(--text-muted);">Today</div></td>
+                            <td><div style="font-weight: 500;">${b.customer_name || 'Guest'}</div></td>
+                            <td>${b.room_name}</td>
+                            <td><span class="status-badge ${parseFloat(b.balance_due) > 0 ? 'balance' : 'paid'}">${parseFloat(b.balance_due) > 0 ? formatCurrency(b.balance_due) + ' Due' : 'Paid'}</span></td>
+                        </tr>`).join('');
+                }
+            } catch (error) { console.error('Error:', error); } finally { refreshIcon.classList.remove('fa-spin'); }
+        }
+
+        async function markContacted(id, name) {
+            const btn = document.getElementById(`btn-${id}`);
+            const row = btn.closest('tr'); 
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>'; btn.disabled = true;
+
+            try {
+                const response = await fetch(UPDATE_STATUS_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify({ id: id, staff_name: STAFF_NAME })
+                });
+
+                if (response.ok) {
+                    showToast(`${name} accepted`);
+                    // Visual removal
+                    row.style.opacity = '0';
+                    setTimeout(() => row.remove(), 500);
+                    // Background refresh
+                    setTimeout(loadDashboard, 1500); 
+                } else { throw new Error("Update failed"); }
+            } catch (error) {
+                showToast("Failed to update", "error");
+                btn.innerHTML = 'Retry';
+                btn.disabled = false;
+            }
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i> ${message}`;
+            container.appendChild(toast);
+            setTimeout(() => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
+        }
+
+        function startClock() {
+            const clockEl = document.getElementById('clock-text');
+            setInterval(() => { clockEl.innerText = new Date().toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(',', ''); }, 1000);
+        }
+
+        startClock(); loadDashboard(); setInterval(loadDashboard, 60000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Final Payment | VenuePro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        // SECURITY CHECK: If no token, redirect to login immediately
+        if (!localStorage.getItem('vp_token')) {
+            window.location.href = 'login.html';
+        }
+    </script>    
+    <style>
+        /* CORE VARIABLES */
+        :root { --bg-dark: #0f172a; --bg-card: rgba(30, 41, 59, 0.9); --border: rgba(148, 163, 184, 0.1); --primary: #6366f1; --success: #10b981; --warning: #f59e0b; --text-main: #f8fafc; --text-muted: #94a3b8; --sidebar-width: 260px; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background-color: var(--bg-dark); color: var(--text-main); min-height: 100vh; display: flex; overflow-x: hidden; }
+
+        /* SIDEBAR */
+        aside { width: var(--sidebar-width); background: rgba(15, 23, 42, 0.95); border-right: 1px solid var(--border); padding: 2rem; display: flex; flex-direction: column; position: fixed; height: 100vh; z-index: 100; transition: transform 0.3s ease; }
+        .brand { font-size: 1.5rem; font-weight: 700; color: white; display: flex; align-items: center; justify-content: space-between; margin-bottom: 3rem; }
+        .nav-link { display: flex; align-items: center; gap: 12px; padding: 12px 16px; color: var(--text-muted); text-decoration: none; border-radius: 8px; margin-bottom: 5px; transition: all 0.2s; font-weight: 500; }
+        .nav-link:hover, .nav-link.active { background: rgba(99, 102, 241, 0.1); color: var(--primary); }
+        .close-sidebar { display: none; background: none; border: none; color: white; font-size: 1.2rem; cursor: pointer; }
+
+        /* MAIN */
+        main { margin-left: var(--sidebar-width); flex: 1; padding: 2rem; width: 100%; transition: margin-left 0.3s ease; }
+        header { display: flex; align-items: center; margin-bottom: 2rem; gap: 1rem; }
+        .menu-toggle { display: none; background: var(--bg-card); border: 1px solid var(--border); color: white; width: 40px; height: 40px; border-radius: 8px; align-items: center; justify-content: center; cursor: pointer; }
+
+        /* FORM */
+        .form-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 2rem; max-width: 800px; margin: 0 auto; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .form-section-title { font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; display: flex; align-items: center; gap: 10px; }
+        .form-section-title i { color: var(--primary); }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+        .full-width { grid-column: span 2; }
+
+        .input-group label { display: block; color: var(--text-muted); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 0.5rem; }
+        .input-wrapper { position: relative; width: 100%; }
+        .input-wrapper i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--primary); pointer-events: none; }
+        
+        input, select { width: 100%; padding: 14px 15px 14px 45px; background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-radius: 10px; color: white; outline: none; font-size: 1rem; appearance: none; }
+        select { cursor: pointer; }
+        input[readonly] { opacity: 0.6; cursor: default; }
+
+        /* Payment Box */
+        .payment-box { background: rgba(0, 0, 0, 0.2); padding: 2rem; border-radius: 12px; border: 1px solid var(--border); text-align: center; }
+        .balance-display { font-size: 2.2rem; font-weight: 700; color: var(--warning); margin: 10px 0; display: block; }
+        .btn-pay { width: 100%; padding: 16px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 1rem; background: var(--success); color: #0f172a; margin-top: 1.5rem; transition: transform 0.2s; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-pay:hover { transform: translateY(-2px); }
+        .btn-pay:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 90; backdrop-filter: blur(2px); }
+        .overlay.active { display: block; }
+
+        @media (max-width: 768px) { aside { transform: translateX(-100%); } aside.active { transform: translateX(0); } main { margin-left: 0; padding: 1rem; } .menu-toggle { display: flex; } .form-grid { grid-template-columns: 1fr; } .full-width { grid-column: span 1; } }
+    </style>
+</head>
+<body>
+
+    <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+
+    <aside id="sidebar">
+        <div class="brand"><span><i class="fa-solid fa-layer-group"></i> VenuePro</span><button class="close-sidebar" onclick="toggleMenu()"><i class="fa-solid fa-xmark"></i></button></div>
+        <nav>
+            <a href="index.html" class="nav-link"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
+            <a href="bookings.html" class="nav-link"><i class="fa-solid fa-calendar-days"></i> Bookings</a>
+            <a href="customers.html" class="nav-link"><i class="fa-solid fa-users"></i> Customers</a>
+            <a href="accounts.html" class="nav-link"><i class="fa-solid fa-file-invoice-dollar"></i> Accounts</a>
+            <a href="venuepro_booking.html" class="nav-link"><i class="fa-solid fa-building"></i> Event Booking</a>     
+            <a href="final-payment.html" class="nav-link active"><i class="fa-solid fa-check-double"></i> Final Payment</a>
+            <a href="calendar.html" class="nav-link"> <i class="fa-solid fa-calendar-alt"></i> Calendar</a>
+            <a href="users.html" class="nav-link"> <i class="fa-solid fa-user-shield"></i> Users</a>    
+            <a href="#" onclick="logout()" class="nav-link" style="margin-top: auto; color: #ef4444; border-top: 1px solid rgba(255,255,255,0.05);">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout</a> 
+        </nav>
+    </aside>
+
+    <main>
+        <header>
+            <button class="menu-toggle" onclick="toggleMenu()"><i class="fa-solid fa-bars"></i></button>
+            <h1 style="font-size: 1.5rem; font-weight: 700;">Final Payment</h1>
+        </header>
+
+        <form id="paymentForm" class="form-card" onsubmit="return false;">
+            
+            <!-- SELECT BOOKING -->
+            <div class="form-section-title"><i class="fa-solid fa-file-invoice"></i> Select Booking</div>
+            <div class="form-grid">
+                <div class="input-group full-width">
+                    <label>Outstanding Balance</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-list-ul"></i>
+                        <select id="bookingSelect" onchange="fillDetails()" required>
+                            <option value="">Loading balances...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DETAILS -->
+            <div class="form-section-title"><i class="fa-solid fa-circle-info"></i> Booking Details</div>
+            <div class="form-grid">
+                <div class="input-group">
+                    <label>Customer</label>
+                    <div class="input-wrapper"><i class="fa-solid fa-user"></i><input type="text" id="customerName" readonly></div>
+                </div>
+                <div class="input-group">
+                    <label>Room</label>
+                    <div class="input-wrapper"><i class="fa-solid fa-door-open"></i><input type="text" id="roomName" readonly></div>
+                </div>
+                <div class="input-group">
+                    <label>Event Date</label>
+                    <div class="input-wrapper"><i class="fa-solid fa-calendar"></i><input type="text" id="eventDate" readonly></div>
+                </div>
+                <div class="input-group">
+                    <label>Customer Email</label>
+                    <div class="input-wrapper"><i class="fa-solid fa-envelope"></i><input type="text" id="customerEmail" readonly></div>
+                </div>
+                
+                <!-- HIDDEN IDs -->
+                <input type="hidden" id="bookingId">
+                <input type="hidden" id="customerId">
+            </div>
+
+            <!-- PAYMENT ACTION -->
+            <div class="form-section-title"><i class="fa-solid fa-credit-card"></i> Settle Account</div>
+            <div class="payment-box">
+                <label style="color:var(--text-muted); font-weight:600; text-transform:uppercase;">Balance Due (£)</label>
+                <div id="balanceDisplay" class="balance-display">£0.00</div>
+                <input type="hidden" id="balanceAmount">
+
+                <button class="btn-pay" onclick="submitPayment()">
+                    <i class="fa-solid fa-lock"></i> Process Final Payment
+                </button>
+            </div>
+        </form>
+    </main>
+
+    <script>
+        // CONFIG
+        // REMOVED Port 5678 to match your proxy settings
+        function logout() {
+            if(confirm("Are you sure you want to log out?")) {
+                // Clear the keys
+                localStorage.removeItem('vp_token');
+                localStorage.removeItem('vp_user');
+                // Redirect
+                window.location.href = 'login.html';
+            }
+        }        
+        const LIST_API = 'https://n8n.srv1090894.hstgr.cloud/webhook/get-outstanding-bookings';
+        const PAY_API = 'https://n8n.srv1090894.hstgr.cloud/webhook/pay-balance';
+
+        function getAuthHeaders() {
+            return { 'Authorization': 'Bearer ' + (localStorage.getItem('vp_token') || '') };
+        }
+
+        
+        let bookingsData = [];
+        const formatGBP = (num) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(num);
+
+        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); }
+
+        async function loadOutstanding() {
+            try {
+                const res = await fetch(LIST_API, { headers: getAuthHeaders() });
+                const json = await responseCheck(res);
+                bookingsData = json.data || (Array.isArray(json) ? json : []);
+                
+                const select = document.getElementById('bookingSelect');
+                select.innerHTML = '<option value="">-- Select Outstanding Invoice --</option>';
+
+                if(bookingsData.length === 0) {
+                    select.innerHTML = '<option value="">No outstanding balances found</option>';
+                    return;
+                }
+
+                bookingsData.forEach((b, index) => {
+                    const opt = document.createElement('option');
+                    opt.value = index;
+                    const dateStr = new Date(b.booking_date).toLocaleDateString();
+                    opt.text = `${b.full_name} - ${b.room_name} (${dateStr})`;
+                    select.add(opt);
+                });
+            } catch (e) { console.error(e); }
+        }
+
+        // Helper to check response
+        async function responseCheck(res) {
+            if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+            return await res.json();
+        }
+
+        function fillDetails() {
+            const index = document.getElementById('bookingSelect').value;
+            if (index === "") return;
+            const b = bookingsData[index];
+
+            document.getElementById('customerName').value = b.full_name || '';
+            document.getElementById('roomName').value = b.room_name || '';
+            document.getElementById('eventDate').value = new Date(b.booking_date).toLocaleDateString();
+            document.getElementById('customerEmail').value = b.email || '';
+            
+            document.getElementById('bookingId').value = b.booking_id;
+            document.getElementById('customerId').value = b.customer_id;
+            
+            document.getElementById('balanceDisplay').innerText = formatGBP(b.balance_due);
+            document.getElementById('balanceAmount').value = b.balance_due;
+        }
+
+        async function submitPayment() {
+            const bookingId = document.getElementById('bookingId').value;
+            const customerId = document.getElementById('customerId').value;
+            const amount = document.getElementById('balanceAmount').value;
+
+            if(!bookingId) { alert("Please select a booking first."); return; }
+
+            const parsedAmt = parseFloat(amount);
+            if (isNaN(parsedAmt) || parsedAmt <= 0) { alert("Invalid amount. Must be a positive number."); return; }
+
+            if(!confirm(`Confirm payment of ${formatGBP(parsedAmt)} for this booking?`)) return;
+
+            const btn = document.querySelector('.btn-pay');
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Processing...';
+
+            try {
+                const res = await fetch(PAY_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify({ 
+                        booking_id: bookingId, 
+                        customer_id: customerId, 
+                        amount: amount 
+                    })
+                });
+
+                const result = await responseCheck(res);
+                
+                if (result.status === 'success' || result.status === 'partial') {
+                    alert("Payment Successful! Booking is now Fully Paid.");
+                    window.location.href = "index.html";
+                } else {
+                    throw new Error("Server response error");
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Payment Failed. Check console.");
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
+        }
+
+        loadOutstanding();
+    </script>
+</body>
+</html>
