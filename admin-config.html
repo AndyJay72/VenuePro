@@ -192,6 +192,7 @@
         <button class="tab-btn active" onclick="switchTab('rooms')"><i class="fa-solid fa-door-open"></i> Rooms</button>
         <button class="tab-btn"        onclick="switchTab('events')"><i class="fa-solid fa-calendar-star"></i> Event Types</button>
         <button class="tab-btn"        onclick="switchTab('pricing')"><i class="fa-solid fa-sterling-sign"></i> Pricing Grid</button>
+        <button class="tab-btn"        onclick="switchTab('settings')"><i class="fa-solid fa-gear"></i> Settings</button>
     </div>
 
     <!-- ═══════════════════════════════════════ -->
@@ -315,6 +316,42 @@
             </div>
         </div>
     </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- TAB: SETTINGS                           -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="tab-panel" id="tab-settings">
+        <div class="card" style="max-width:580px">
+            <div class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Booking Turnaround Buffer</div>
+            <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:1.5rem;line-height:1.6">
+                The minimum gap required between back-to-back bookings in the same room.
+                A new booking cannot start within this buffer period after an existing booking ends,
+                and cannot end within this buffer period before an existing booking starts.
+            </p>
+            <div class="input-group">
+                <label>Buffer Time</label>
+                <select id="bufferSelect" onchange="handleBufferSelectChange()">
+                    <option value="0">No buffer (bookings can be back-to-back)</option>
+                    <option value="30">30 minutes</option>
+                    <option value="45">45 minutes</option>
+                    <option value="60">60 minutes (recommended)</option>
+                    <option value="90">90 minutes</option>
+                    <option value="120">2 hours</option>
+                    <option value="custom">Custom...</option>
+                </select>
+            </div>
+            <div class="input-group" id="customBufferGroup" style="display:none">
+                <label>Custom Buffer (minutes)</label>
+                <input type="number" id="customBufferInput" min="0" max="480" step="5" placeholder="e.g. 75">
+            </div>
+            <div id="bufferCurrentInfo" style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem;padding:8px 12px;background:rgba(0,0,0,0.2);border-radius:8px;">
+                <i class="fa-solid fa-circle-info"></i> <span id="bufferCurrentText">Loading current setting...</span>
+            </div>
+            <button class="btn btn-primary" id="saveBufferBtn" onclick="saveBufferSetting()">
+                <i class="fa-solid fa-floppy-disk"></i> Save Buffer Setting
+            </button>
+        </div>
+    </div>
 </main>
 
 <script>
@@ -333,6 +370,8 @@ const API = {
     deleteEventType:BASE + '/delete-event-type',
     getPricing:     BASE + '/get-pricing',
     setPricing:     BASE + '/set-pricing',
+    getSettings:    BASE + '/get-settings',
+    updateSetting:  BASE + '/update-setting',
 };
 
 function getAuthHeaders() {
@@ -345,7 +384,7 @@ function getAuthHeaders() {
 // ─────────────────────────────────────────────
 // STATE
 // ─────────────────────────────────────────────
-let rooms = [], eventTypes = [], pricing = [];
+let rooms = [], eventTypes = [], pricing = [], settings = [];
 let modalMode = null; // { type: 'room'|'event', id, data }
 
 // ─────────────────────────────────────────────
@@ -371,7 +410,8 @@ function switchTab(name) {
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('tab-' + name).classList.add('active');
     event.target.closest('.tab-btn').classList.add('active');
-    if (name === 'pricing') renderPricingGrid();
+    if (name === 'pricing')  renderPricingGrid();
+    if (name === 'settings') loadSettings();
 }
 
 // ─────────────────────────────────────────────
@@ -697,6 +737,65 @@ async function savePricingCell(input) {
 }
 
 // ─────────────────────────────────────────────
+// SETTINGS
+// ─────────────────────────────────────────────
+async function loadSettings() {
+    document.getElementById('bufferCurrentText').textContent = 'Loading...';
+    try {
+        const res = await fetch(API.getSettings, { headers: getAuthHeaders() });
+        const json = await res.json();
+        settings = json.data || (Array.isArray(json) ? json : []);
+        const bufferSetting = settings.find(s => s.key === 'booking_buffer_minutes');
+        const currentVal = bufferSetting ? parseInt(bufferSetting.value) : 60;
+        // Update info text
+        document.getElementById('bufferCurrentText').textContent =
+            `Current: ${currentVal === 0 ? 'No buffer' : currentVal + ' minutes'} — last updated ${bufferSetting ? new Date(bufferSetting.updated_at).toLocaleString('en-GB') : 'never'}`;
+        // Set select to matching value
+        const sel = document.getElementById('bufferSelect');
+        const knownValues = ['0','30','45','60','90','120'];
+        if (knownValues.includes(String(currentVal))) {
+            sel.value = String(currentVal);
+            document.getElementById('customBufferGroup').style.display = 'none';
+        } else {
+            sel.value = 'custom';
+            document.getElementById('customBufferInput').value = currentVal;
+            document.getElementById('customBufferGroup').style.display = 'block';
+        }
+    } catch(e) {
+        document.getElementById('bufferCurrentText').textContent = 'Failed to load settings.';
+    }
+}
+
+function handleBufferSelectChange() {
+    const sel = document.getElementById('bufferSelect');
+    document.getElementById('customBufferGroup').style.display =
+        sel.value === 'custom' ? 'block' : 'none';
+}
+
+async function saveBufferSetting() {
+    const sel = document.getElementById('bufferSelect');
+    let minutes;
+    if (sel.value === 'custom') {
+        minutes = parseInt(document.getElementById('customBufferInput').value);
+        if (isNaN(minutes) || minutes < 0) { showToast('Invalid minutes value', 'error'); return; }
+    } else {
+        minutes = parseInt(sel.value);
+    }
+    const btn = document.getElementById('saveBufferBtn');
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+    try {
+        const res = await fetch(API.updateSetting, {
+            method: 'POST', headers: getAuthHeaders(),
+            body: JSON.stringify({ key: 'booking_buffer_minutes', value: minutes })
+        });
+        if (!res.ok) throw new Error('Save failed');
+        showToast(`Buffer set to ${minutes === 0 ? 'no buffer' : minutes + ' minutes'}`);
+        await loadSettings();
+    } catch(e) { showToast('Failed to save setting', 'error'); }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Buffer Setting'; }
+}
+
+// ─────────────────────────────────────────────
 // ESCAPE HELPER
 // ─────────────────────────────────────────────
 function esc(str) {
@@ -708,7 +807,7 @@ function esc(str) {
 // INIT
 // ─────────────────────────────────────────────
 async function init() {
-    await Promise.all([loadRooms(), loadEventTypes(), loadPricing()]);
+    await Promise.all([loadRooms(), loadEventTypes(), loadPricing(), loadSettings()]);
 }
 
 init();
