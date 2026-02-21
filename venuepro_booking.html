@@ -167,6 +167,13 @@
         .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 90; backdrop-filter: blur(2px); }
         .overlay.active { display: block; }
 
+        /* Availability Status */
+        .avail-status { padding: 10px 14px; border-radius: 10px; font-size: 0.88rem; font-weight: 600; display: flex; align-items: center; gap: 10px; border: 1px solid; }
+        .avail-status.checking { background: rgba(99,102,241,0.1); border-color: rgba(99,102,241,0.3); color: var(--primary); }
+        .avail-status.available { background: rgba(16,185,129,0.12); border-color: rgba(16,185,129,0.35); color: var(--success); }
+        .avail-status.unavailable { background: rgba(239,68,68,0.12); border-color: rgba(239,68,68,0.35); color: #f87171; }
+        .avail-status.idle { background: rgba(0,0,0,0.2); border-color: var(--border); color: var(--text-muted); }
+
         /* --- RESPONSIVE MEDIA QUERIES --- */
         @media (max-width: 900px) {
             .form-grid { grid-template-columns: 1fr; } /* Stack everything */
@@ -269,14 +276,14 @@
                     <label>Date</label>
                     <div class="input-wrapper">
                         <i class="fa-solid fa-calendar icon-left"></i>
-                        <input type="date" id="bookingDate" required>
+                        <input type="date" id="bookingDate" required onchange="checkAvailability()">
                     </div>
                 </div>
                 <div class="input-group">
                     <label>Start Time</label>
                     <div class="input-wrapper">
                         <i class="fa-solid fa-clock icon-left"></i>
-                        <select id="startTime" onchange="calculateCost()" required>
+                        <select id="startTime" onchange="calculateCost(); checkAvailability();" required>
                             <option value="" disabled selected>--:--</option>
                         </select>
                         <i class="fa-solid fa-chevron-down icon-right"></i>
@@ -286,11 +293,19 @@
                     <label>End Time</label>
                     <div class="input-wrapper">
                         <i class="fa-solid fa-clock icon-left"></i>
-                        <select id="endTime" onchange="calculateCost()" required>
+                        <select id="endTime" onchange="calculateCost(); checkAvailability();" required>
                             <option value="" disabled selected>--:--</option>
                         </select>
                         <i class="fa-solid fa-chevron-down icon-right"></i>
                     </div>
+                </div>
+            </div>
+
+            <!-- AVAILABILITY STATUS -->
+            <div style="margin-bottom:1.5rem">
+                <div id="availStatus" class="avail-status idle">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span id="availText">Select a room, date and times to check availability</span>
                 </div>
             </div>
 
@@ -347,6 +362,7 @@
 
         
         let requestsData = [];
+        let _availCheckTimeout = null;
         
         const roomRates = {
             "Conference Room A": { hourly: 100, daily: 500, depositPct: 30 },
@@ -428,6 +444,7 @@
             }
 
             calculateCost();
+            checkAvailability();
         }
 
         function calculateCost() {
@@ -461,6 +478,57 @@
             
             document.getElementById('costBreakdown').innerText = `${type} | ${duration.toFixed(1)}hrs | Deposit ${rates.depositPct}%`;
             document.getElementById('btnDeposit').innerHTML = `<i class="fa-solid fa-coins"></i> Pay Deposit (${formatGBP(deposit)})`;
+        }
+
+        async function checkAvailability() {
+            const room  = document.getElementById('roomName').value;
+            const date  = document.getElementById('bookingDate').value;
+            const start = document.getElementById('startTime').value;
+            const end   = document.getElementById('endTime').value;
+
+            const el   = document.getElementById('availStatus');
+            const txt  = document.getElementById('availText');
+
+            if (!room || !date || !start || !end) {
+                el.className = 'avail-status idle';
+                el.querySelector('i').className = 'fa-solid fa-circle-info';
+                txt.textContent = 'Select a room, date and times to check availability';
+                return;
+            }
+
+            // Debounce — don't fire on every keystroke
+            clearTimeout(_availCheckTimeout);
+            _availCheckTimeout = setTimeout(async () => {
+                el.className = 'avail-status checking';
+                el.querySelector('i').className = 'fa-solid fa-circle-notch fa-spin';
+                txt.textContent = 'Checking availability...';
+
+                try {
+                    const res = await fetch(CHECK_API, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                        body: JSON.stringify({ roomName: room, eventDate: date, timeFrom: start, timeTo: end })
+                    });
+                    const d = await res.json();
+                    if (d.available === true || d.available === 'true') {
+                        el.className = 'avail-status available';
+                        el.querySelector('i').className = 'fa-solid fa-circle-check';
+                        const bufMin = parseInt(d.buffer_minutes) || 0;
+                        txt.textContent = `Slot available${bufMin > 0 ? ' \u2014 ' + bufMin + '-min turnaround buffer applied' : ''}`;
+                        document.querySelectorAll('.btn').forEach(b => b.disabled = false);
+                    } else {
+                        el.className = 'avail-status unavailable';
+                        el.querySelector('i').className = 'fa-solid fa-circle-xmark';
+                        const bufMin = parseInt(d.buffer_minutes) || 0;
+                        txt.textContent = `Conflict detected${bufMin > 0 ? ' (includes ' + bufMin + '-min buffer)' : ''} \u2014 please choose a different time`;
+                        document.querySelectorAll('.btn').forEach(b => b.disabled = true);
+                    }
+                } catch(e) {
+                    el.className = 'avail-status idle';
+                    el.querySelector('i').className = 'fa-solid fa-triangle-exclamation';
+                    txt.textContent = 'Could not verify availability \u2014 proceed with caution';
+                }
+            }, 500);
         }
 
         async function submitBooking(type) {
