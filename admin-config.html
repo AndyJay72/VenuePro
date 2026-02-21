@@ -307,7 +307,7 @@
     <div class="tab-panel" id="tab-pricing">
         <div class="card">
             <div class="card-title">
-                <i class="fa-solid fa-sterling-sign"></i> Price Override Grid
+                <i class="fa-solid fa-sterling-sign"></i> Event Surcharge Grid
                 <span style="font-size:0.78rem;font-weight:400;color:var(--text-muted);margin-left:auto">
                     Set custom day rates per room + event type. Blank = uses room default rate.
                 </span>
@@ -701,7 +701,7 @@ function renderPricingGrid() {
             const val = priceMap[key] != null ? parseFloat(priceMap[key]) : '';
             html += `<td class="pricing-cell">
                 <input class="price-input" type="number" min="0" step="0.01"
-                    placeholder="${parseFloat(r.day_rate).toFixed(0)}"
+                    placeholder="0"
                     value="${val}"
                     data-room="${r.id}" data-type="${et.id}"
                     oninput="this.classList.add('unsaved')"
@@ -713,7 +713,7 @@ function renderPricingGrid() {
 
     html += `</tbody></table>
     <p style="margin-top:1rem;font-size:0.8rem;color:var(--text-muted)">
-        <i class="fa-solid fa-circle-info"></i> Changes save automatically when you leave a cell. Blank = use room default rate.
+        <i class="fa-solid fa-circle-info"></i> Enter a surcharge amount (£) to add on top of the room's normal rate for specific event types. Blank = no surcharge. Changes save automatically.
     </p>`;
     wrap.innerHTML = html;
 }

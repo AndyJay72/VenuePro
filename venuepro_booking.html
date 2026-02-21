@@ -485,36 +485,34 @@
                 return;
             }
 
-            // Base rate: check for event-type pricing override first
-            let baseRate = parseFloat(room.day_rate) || 0;
-            let rateSource = 'Default day rate';
-            if (currentEventTypeId) {
-                const override = pricingData.find(
-                    p => String(p.room_id) === String(roomId) && String(p.event_type_id) === String(currentEventTypeId)
-                );
-                if (override && override.day_rate != null) {
-                    baseRate = parseFloat(override.day_rate);
-                    rateSource = 'Custom rate (event type override)';
-                }
-            }
-
+            // Step 1: Calculate base cost from room rates + duration tiers
+            const baseRate = parseFloat(room.day_rate) || 0;
             const halfRate = room.half_rate ? parseFloat(room.half_rate) : null;
 
             let cost = 0;
             let rateType = '';
 
             if (duration >= 6) {
-                // Full day
                 cost = baseRate;
-                rateType = `Full Day — ${rateSource}`;
+                rateType = 'Full Day';
             } else if (halfRate && duration >= 3) {
-                // Half day (3–5.9 hrs) — use half_rate if set
                 cost = halfRate;
                 rateType = 'Half-Day Rate';
             } else {
-                // Pro-rate: fraction of full day (assumes 8-hr day)
                 cost = (duration / 8) * baseRate;
                 rateType = `Pro-rated ${duration.toFixed(1)}hrs of 8hr day`;
+            }
+
+            // Step 2: Add event-type surcharge on top (if configured in Pricing Grid)
+            if (currentEventTypeId) {
+                const sur = pricingData.find(
+                    p => String(p.room_id) === String(roomId) && String(p.event_type_id) === String(currentEventTypeId)
+                );
+                if (sur && sur.day_rate != null && parseFloat(sur.day_rate) > 0) {
+                    const surcharge = parseFloat(sur.day_rate);
+                    cost += surcharge;
+                    rateType += ` + ${formatGBP(surcharge)} event surcharge`;
+                }
             }
 
             const deposit = cost * (DEPOSIT_PCT / 100);
