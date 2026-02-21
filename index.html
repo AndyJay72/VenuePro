@@ -122,6 +122,15 @@
         .btn-book { background: var(--success); color: #0f172a; display: flex; align-items: center; gap: 8px; }
         .btn-pay { background: var(--warning); color: #0f172a; display: flex; align-items: center; gap: 8px; }
         .btn-book:hover, .btn-pay:hover { opacity: 0.9; transform: translateY(-2px); }
+        .btn-cancel { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.4); display: flex; align-items: center; gap: 8px; }
+        .btn-cancel:hover { background: rgba(239,68,68,0.3); }
+        .btn-month-nav { background: none; border: 1px solid var(--border); color: var(--text-muted); width: 28px; height: 28px; border-radius: 6px; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; transition: 0.2s; line-height: 1; }
+        .btn-month-nav:hover { color: white; border-color: white; }
+        .days-badge { font-size: 0.68rem; padding: 2px 6px; border-radius: 10px; font-weight: 700; white-space: nowrap; display: inline-block; margin-top: 3px; }
+        .days-badge.ok { background: rgba(16,185,129,0.15); color: var(--success); }
+        .days-badge.warn { background: rgba(245,158,11,0.15); color: var(--warning); }
+        .days-badge.danger { background: rgba(239,68,68,0.15); color: #f87171; }
+        .countdown-bar { margin: 1rem 0 0.5rem; padding: 10px 12px; background: rgba(0,0,0,0.2); border-radius: 8px; border: 1px solid var(--border); font-size: 0.82rem; display: flex; align-items: center; gap: 10px; }
 
         /* --- TOAST & OVERLAY --- */
         #toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1000; pointer-events: none; }
@@ -152,7 +161,6 @@
             <!-- ADDED CALENDAR LINK -->
             <a href="calendar.html" class="nav-link"><i class="fa-solid fa-calendar-alt"></i> Calendar</a>
             <a href="users.html" class="nav-link"><i class="fa-solid fa-user-shield"></i> Users</a>
-            <a href="admin-config.html"    class="nav-link active"><i class="fa-solid fa-sliders"></i> Config</a>
             <a href="#" onclick="logout()" class="nav-link" style="margin-top: auto; color: #ef4444; border-top: 1px solid rgba(255,255,255,0.05);"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
         </nav>
     </aside>
@@ -170,7 +178,7 @@
         </header>
 
         <div class="stats-grid">
-            <div class="card"><div class="stat-header"><span class="stat-label">Monthly Revenue</span><div class="stat-icon" style="color: var(--success);"><i class="fa-solid fa-sterling-sign"></i></div></div><div class="stat-value" id="val-revenue">--</div></div>
+            <div class="card"><div class="stat-header"><span class="stat-label">Monthly Revenue</span><div class="stat-icon" style="color: var(--success);"><i class="fa-solid fa-sterling-sign"></i></div></div><div style="display:flex;align-items:center;gap:8px"><button class="btn-month-nav" onclick="changeRevenueMonth(-1)">&#8249;</button><div style="flex:1;text-align:center"><div class="stat-value" id="val-revenue">--</div><div id="val-revenue-label" style="font-size:0.72rem;color:var(--text-muted);margin-top:3px">-- ----</div></div><button class="btn-month-nav" onclick="changeRevenueMonth(1)">&#8250;</button></div></div>
             <div class="card"><div class="stat-header"><span class="stat-label">Pending Reviews</span><div class="stat-icon" style="color: var(--warning);"><i class="fa-solid fa-clipboard-list"></i></div></div><div class="stat-value" id="val-pending">--</div></div>
             <div class="card"><div class="stat-header"><span class="stat-label">Tasks Completed</span><div class="stat-icon" style="color: var(--primary);"><i class="fa-solid fa-check-double"></i></div></div><div class="stat-value" id="val-contacted">--</div></div>
         </div>
@@ -225,14 +233,19 @@
     <div id="toast-container"></div>
 
     <script>
-        const DASHBOARD_WEBHOOK_URL = 'https://n8n.srv1090894.hstgr.cloud/webhook/staff-dashboard';
-        const UPDATE_STATUS_URL = 'https://n8n.srv1090894.hstgr.cloud/webhook/update-status';
+        const DASHBOARD_WEBHOOK_URL  = 'https://n8n.srv1090894.hstgr.cloud/webhook/staff-dashboard';
+        const UPDATE_STATUS_URL      = 'https://n8n.srv1090894.hstgr.cloud/webhook/update-status';
+        const CANCEL_PENDING_URL     = 'https://n8n.srv1090894.hstgr.cloud/webhook/cancel-pending';
+        const MONTHLY_REVENUE_URL    = 'https://n8n.srv1090894.hstgr.cloud/webhook/get-monthly-revenue';
 
         function getAuthHeaders() {
             return { 'Authorization': 'Bearer ' + (localStorage.getItem('vp_token') || '') };
         }
 
         const STAFF_NAME = "Manager";
+        const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        let revenueMonth = new Date().getMonth() + 1;
+        let revenueYear  = new Date().getFullYear();
 
         const formatCurrency = (num) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(num);
         function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); }
@@ -250,15 +263,37 @@
             document.getElementById('m-guests').innerText = data.guests_count || '0';
 
             const btnContainer = document.getElementById('modal-buttons');
-            let actionBtn = '';
-            
-            if (data.status === 'pending' || data.status === 'contacted') {
-                actionBtn = `<a href="venuepro_booking.html" class="btn-modal btn-book"><i class="fa-solid fa-calendar-check"></i> Book Now</a>`;
-            } else if (data.status === 'deposit_paid') {
-                 actionBtn = `<a href="final-payment.html" class="btn-modal btn-pay"><i class="fa-solid fa-credit-card"></i> Pay Balance</a>`;
+            const isPendingOrContacted = data.status === 'pending' || data.status === 'contacted';
+
+            // Countdown banner (7-day lifecycle)
+            let countdownHtml = '';
+            if (isPendingOrContacted && data.created_at) {
+                const daysPassed = Math.floor((Date.now() - new Date(data.created_at).getTime()) / 86400000);
+                const daysLeft   = Math.max(0, 7 - daysPassed);
+                const colour = daysLeft <= 1 ? '#f87171' : daysLeft <= 3 ? 'var(--warning)' : 'var(--success)';
+                const icon   = daysLeft <= 1 ? 'fa-triangle-exclamation' : daysLeft <= 3 ? 'fa-clock' : 'fa-hourglass-half';
+                const msg    = daysLeft === 0 ? 'Expires today' : `Expires in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`;
+                countdownHtml = `<div class="countdown-bar" style="border-color:${colour};color:${colour}">`
+                              + `<i class="fa-solid ${icon}"></i>`
+                              + `<span><strong>${msg}</strong> — unbooked enquiries are removed after 7 days</span>`
+                              + `</div>`;
             }
 
-            btnContainer.innerHTML = actionBtn + `<button class="btn-modal btn-close" onclick="closeModal()">Close</button>`;
+            if (isPendingOrContacted) {
+                const hasBooking = data.has_booking === true || data.has_booking === 'true';
+                const bookBtn    = `<a href="venuepro_booking.html" class="btn-modal btn-book"><i class="fa-solid fa-calendar-check"></i> Book Now</a>`;
+                const cancelBtn  = `<button class="btn-modal btn-cancel" onclick="cancelRequest('${data.id}','${(data.full_name||'').replace(/'/g,"\\'")}')"><i class="fa-solid fa-ban"></i> Cancel</button>`;
+                const acceptDisabled = hasBooking ? '' : 'disabled title="A booking request must be made before accepting"';
+                const acceptBtn  = `<button class="btn-modal btn-book" style="${hasBooking ? '' : 'opacity:0.45;cursor:not-allowed;'}" ${acceptDisabled} onclick="markContacted('${data.id}','${(data.full_name||'').replace(/'/g,"\\'")}')"><i class="fa-solid fa-check"></i> Accept</button>`;
+                btnContainer.innerHTML = countdownHtml
+                    + `<div style="display:flex;gap:10px;justify-content:flex-end;align-items:center;flex-wrap:wrap;margin-top:1rem">`
+                    + bookBtn + acceptBtn + cancelBtn
+                    + `<button class="btn-modal btn-close" onclick="closeModal()">Close</button></div>`;
+            } else if (data.status === 'deposit_paid') {
+                btnContainer.innerHTML = `<a href="final-payment.html" class="btn-modal btn-pay"><i class="fa-solid fa-credit-card"></i> Pay Balance</a><button class="btn-modal btn-close" onclick="closeModal()">Close</button>`;
+            } else {
+                btnContainer.innerHTML = `<button class="btn-modal btn-close" onclick="closeModal()">Close</button>`;
+            }
             document.getElementById('custModal').classList.add('open');
         }
         function closeModal(e) { if(!e || e.target.id === 'custModal' || e.target.classList.contains('modal-close') || e.target.innerText === 'Close') document.getElementById('custModal').classList.remove('open'); }
@@ -274,6 +309,7 @@
 
                 const metrics = data.metrics || {};
                 document.getElementById('val-revenue').innerText = formatCurrency(metrics.total_revenue_month || 0);
+                document.getElementById('val-revenue-label').innerText = `${MONTHS[revenueMonth-1]} ${revenueYear}`;
                 document.getElementById('val-pending').innerText = metrics.pending_requests || 0;
                 document.getElementById('val-contacted').innerText = metrics.contacted_today || 0;
 
@@ -297,15 +333,21 @@
                     reqBody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--text-muted); padding: 2rem;">No new pending requests</td></tr>`;
                 } else {
                     reqBody.innerHTML = uniqueRequests.map(c => {
-                        const dataStr = encodeURIComponent(JSON.stringify(c));
+                        const dataStr    = encodeURIComponent(JSON.stringify(c));
+                        const daysPassed = c.created_at ? Math.floor((Date.now() - new Date(c.created_at).getTime()) / 86400000) : 0;
+                        const daysLeft   = Math.max(0, 7 - daysPassed);
+                        const badgeCls   = daysLeft <= 1 ? 'danger' : daysLeft <= 3 ? 'warn' : 'ok';
+                        const rowStyle   = daysLeft <= 1 ? 'background:rgba(239,68,68,0.06);' : '';
+                        const canAccept  = c.has_booking === true || c.has_booking === 'true';
+                        const disabledAttr = canAccept ? '' : 'disabled title="Make a booking request first"';
                         return `
-                        <tr onclick="openModal('${dataStr}')">
+                        <tr onclick="openModal('${dataStr}')" style="${rowStyle}">
                             <td><div style="font-weight: 600;">${c.full_name}</div><div style="font-size: 0.8rem; color: var(--text-muted);">${new Date(c.event_date).toLocaleDateString()}</div></td>
                             <td>${c.event_type}</td>
                             <td><i class="fa-solid fa-user-group" style="font-size: 0.7rem; margin-right:5px"></i> ${c.guests_count}</td>
-                            <td><span class="status-badge pending">${c.status}</span></td>
+                            <td><span class="status-badge pending">${c.status}</span><br><span class="days-badge ${badgeCls}">${daysLeft}d left</span></td>
                             <td style="text-align: right;">
-                                <button id="btn-${c.id}" class="btn-action" style="margin-left: auto;" onclick="event.stopPropagation(); markContacted('${c.id}', '${c.full_name.replace(/'/g, "\\'")}')">
+                                <button id="btn-${c.id}" class="btn-action" style="margin-left: auto;" ${disabledAttr} onclick="event.stopPropagation(); markContacted('${c.id}', '${c.full_name.replace(/'/g, "\\'")}')">
                                     <i class="fa-solid fa-check"></i> Accept
                                 </button>
                             </td>
@@ -384,6 +426,38 @@
         function startClock() {
             const clockEl = document.getElementById('clock-text');
             setInterval(() => { clockEl.innerText = new Date().toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(',', ''); }, 1000);
+        }
+
+        async function fetchMonthlyRevenue(month, year) {
+            try {
+                const r = await fetch(`${MONTHLY_REVENUE_URL}?month=${month}&year=${year}`, { headers: getAuthHeaders() });
+                if (!r.ok) throw new Error();
+                const d = await r.json();
+                document.getElementById('val-revenue').innerText = formatCurrency(d.total_revenue || 0);
+                document.getElementById('val-revenue-label').innerText = `${MONTHS[month-1]} ${year}`;
+            } catch(e) { console.error('Revenue fetch failed', e); }
+        }
+
+        function changeRevenueMonth(delta) {
+            revenueMonth += delta;
+            if (revenueMonth > 12) { revenueMonth = 1;  revenueYear++; }
+            if (revenueMonth < 1)  { revenueMonth = 12; revenueYear--; }
+            fetchMonthlyRevenue(revenueMonth, revenueYear);
+        }
+
+        async function cancelRequest(id, name) {
+            if (!confirm(`Cancel the pending request for ${name}?`)) return;
+            try {
+                const r = await fetch(CANCEL_PENDING_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify({ customer_id: id })
+                });
+                if (!r.ok) throw new Error();
+                showToast(`${name}'s request cancelled`);
+                closeModal();
+                setTimeout(loadDashboard, 800);
+            } catch(e) { showToast('Failed to cancel', 'error'); }
         }
 
         startClock(); loadDashboard(); setInterval(loadDashboard, 60000);
