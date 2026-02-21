@@ -572,3 +572,268 @@ Run `VenuePro - Config Migration.sql` in pgAdmin if not already done — it is i
 | `venuepro_booking.html` | Live API cost calculation | `630e865` |
 
 Live at: **https://andyjay72.github.io/VenuePro/**
+
+
+---
+
+## Session 2 — Later Same Day (17:14 onwards)
+
+The following issues were identified and fixed during a second debug session after the initial deployment.
+
+---
+
+## 11. Make Booking Workflow — `total_amount` NaN Error
+
+### File
+`VenuePro - Make Booking (Platinum Fix) (1).json`
+
+### Problem
+After submitting a booking from `venuepro_booking.html`, n8n threw:
+```
+ExpressionError: Invalid input for 'total_amount' [item 0]
+The value "total_amount" expects a number but we got 'NaN'
+```
+at `insert.operation.ts:234` (DB: Create Booking node).
+
+### Root Cause
+The database schema was migrated from `hourly_rate` / `daily_rate` / `deposit_percentage` column names to `day_rate` / `half_rate`. The `DB: Get Room` node in the workflow was never updated and still queried the old column names:
+```sql
+-- Old (broken)
+SELECT id, name, hourly_rate, daily_rate, deposit_percentage
+FROM bookings.rooms WHERE room_name ILIKE $1 LIMIT 1;
+```
+PostgreSQL returned `null` for all three missing columns. The `Code: Logic + Ref` node then did:
+```javascript
+const dailyRate = parseFloat(room.daily_rate);  // parseFloat(null) = NaN
+calculatedTotal = dailyRate;                     // NaN
+total_amount: calculatedTotal.toFixed(2)         // "NaN" (string)
+```
+`DB: Create Booking` received the string `"NaN"` for a column typed as `number` and rejected it.
+
+There was also a secondary issue: `DB: Get Room` looked up by `room_name ILIKE $1` (a text string), but the webhook payload sends `room_id` (a UUID). This can fail silently for rooms whose names contain special characters or differ in casing.
+
+### Fix Applied
+
+**`DB: Get Room` — new SQL:**
+```sql
+SELECT id, name, day_rate, half_rate
+FROM bookings.rooms
+WHERE id = $1::uuid
+LIMIT 1;
+```
+**queryReplacement:** `={{ [$json.body?.room_id || $json.room_id] }}`
+
+**`Code: Logic + Ref` — rate logic rewritten:**
+```javascript
+const dayRate  = parseFloat(room.day_rate)  || 0;
+const halfRate = room.half_rate ? parseFloat(room.half_rate) : null;
+
+if (duration >= 6) {
+  calculatedTotal = dayRate;        // Full day
+} else if (halfRate && duration >= 3) {
+  calculatedTotal = halfRate;       // Half day
+} else {
+  calculatedTotal = (duration / 8) * dayRate;  // Pro-rated
+}
+
+if (isNaN(calculatedTotal) || calculatedTotal <= 0) {
+  throw new Error(`Rate calculation failed: day_rate=${room.day_rate}`);
+}
+// Output as actual number, not string
+total_amount: parseFloat(calculatedTotal.toFixed(2)),
+```
+
+### What You Need To Do
+Re-import `VenuePro - Make Booking (Platinum Fix) (1).json` into n8n.
+
+---
+
+## 12. Make Booking Workflow — `booking_date` Required but Not Set
+
+### File
+`VenuePro - Make Booking (Platinum Fix) (1).json`
+
+### Problem
+After fixing issue #11, the next error appeared:
+```
+ExpressionError: Invalid input for 'booking_date' [item 0]
+The value "booking_date" is required but not set
+```
+at `insert.operation.ts:234` (DB: Create Booking node).
+
+### Root Cause
+The workflow chain through the booking path is:
+```
+Code: Logic + Ref -> DB: Clash Guard -> IF: Allow Booking? -> DB: Create Booking
+```
+
+`DB: Clash Guard` runs `SELECT COUNT(*) AS clashes ...`. When a Postgres node runs a SELECT, it **replaces `$json`** with its own query output — in this case `{ clashes: "0" }`. All fields output by `Code: Logic + Ref` (`booking_date`, `customer_id`, `room_id`, `total_amount`, etc.) were completely wiped.
+
+`DB: Create Booking` was mapped using:
+```
+booking_date = {{ $json.booking_date }}  <- undefined after Clash Guard overwrites $json
+```
+
+### Fix Applied
+Updated all 11 column mappings in `DB: Create Booking` to reference `Code: Logic + Ref` directly by node name, bypassing the overwritten `$json`:
+```
+customer_id        = {{ $('Code: Logic + Ref').first().json.customer_id }}
+booking_request_id = {{ $('Code: Logic + Ref').first().json.request_id }}
+room_id            = {{ $('Code: Logic + Ref').first().json.room_id }}
+booking_date       = {{ $('Code: Logic + Ref').first().json.booking_date }}
+start_time         = {{ $('Code: Logic + Ref').first().json.start_time }}
+end_time           = {{ $('Code: Logic + Ref').first().json.end_time }}
+total_amount       = {{ $('Code: Logic + Ref').first().json.total_amount }}
+deposit_paid       = {{ $('Code: Logic + Ref').first().json.payment_amount }}
+deposit_paid_date  = {{ $('Code: Logic + Ref').first().json.payment_date }}
+balance_due        = {{ $('Code: Logic + Ref').first().json.balance_due }}
+status             = {{ $('Code: Logic + Ref').first().json.booking_status }}
+```
+This is the same pattern already used correctly by `DB: Record Payment` and `DB: Close Request`.
+
+### What You Need To Do
+Re-import `VenuePro - Make Booking (Platinum Fix) (1).json` into n8n.
+
+---
+
+## 13. Make Booking Workflow — Request Reappears After Booking
+
+### File
+`VenuePro - Make Booking (Platinum Fix) (1).json`
+
+### Problem
+After a booking was successfully processed and payment taken, the booking request disappeared from the pending list — then reappeared a few seconds later. The booking and payment existed in the database but the request status remained `pending`.
+
+### Root Cause
+The workflow chain after `DB: Create Booking` was:
+```
+DB: Create Booking
+  -> DB: Record Payment
+  -> GCal: Create Event
+  -> DB: Store Event ID
+  -> DB: Close Request   <-- too late
+  -> Email: Send
+  -> Respond
+```
+`DB: Close Request` (`UPDATE booking_requests SET status = 'booked' WHERE id = $1`) was positioned **after** the Google Calendar call. If the GCal auth token had expired, or the event creation failed for any reason, the chain aborted at that point. The booking and payment were already committed to the database, but `DB: Close Request` never ran — leaving the request in `pending` status, causing it to reappear in the dropdown.
+
+### Fix Applied
+Reordered the chain so all critical database writes complete before any optional external service calls:
+```
+Before:
+DB: Record Payment -> GCal: Create Event -> DB: Store Event ID -> DB: Close Request -> Email
+
+After:
+DB: Record Payment -> DB: Close Request -> GCal: Create Event -> DB: Store Event ID -> Email
+```
+Now the sequence is: booking created -> payment recorded -> **request closed** -> Google Calendar -> email. Failures in GCal or email are non-critical and do not affect the booking status.
+
+### What You Need To Do
+Re-import `VenuePro - Make Booking (Platinum Fix) (1).json` into n8n.
+
+---
+
+## 14. Make Booking Workflow — Pricing Surcharge Ignored by Workflow
+
+### File
+`VenuePro - Make Booking (Platinum Fix) (1).json`
+
+### Problem
+Even with a surcharge configured in the Admin Config Event Surcharge Grid (e.g. £250 for CHRISTENING), confirmed bookings were created at the base room rate with no surcharge applied.
+
+### Root Cause
+The `Code: Logic + Ref` workflow node recalculated `total_amount` from scratch using only `room.day_rate` fetched directly from the database. It had no knowledge of the `pricing_overrides` table and completely overwrote the `total_amount` that the frontend had already correctly calculated (including any applicable surcharges).
+
+### Fix Applied
+The Code node was simplified to **trust the frontend-calculated amounts** and only validate they are valid numbers:
+```javascript
+// No longer recalculates from room.day_rate
+const total_amount = parseFloat(input.total_amount);
+if (isNaN(total_amount) || total_amount <= 0) {
+  throw new Error('Invalid total_amount received: ' + input.total_amount);
+}
+const payment_amount = parseFloat(input.payment_amount);
+if (isNaN(payment_amount) || payment_amount <= 0) {
+  throw new Error('Invalid payment_amount received: ' + input.payment_amount);
+}
+```
+The frontend is the single source of truth for pricing logic (room rate + duration tiers + event surcharges). The workflow validates, persists, and triggers downstream actions.
+
+### What You Need To Do
+Re-import `VenuePro - Make Booking (Platinum Fix) (1).json` into n8n.
+
+---
+
+## 15. Event Surcharge Grid — Concept Redesign
+
+### Files
+`venuepro_booking.html`, `admin-config.html`
+
+### Background
+The Pricing Grid in Admin Config stores a `day_rate` value per room + event type combination. The original implementation treated this as a **replacement rate**: setting £250 for CHRISTENING would make the entire booking cost £250, replacing the room's normal rate entirely. This caused unexpected behaviour:
+
+- A full-day booking of a £400/day room for a christening would cost **£250** (cheaper, not more expensive)
+- Half-day / pro-rated logic was bypassed since the full rate was being replaced
+- Staff had to enter the complete combined total rather than just the surcharge amount
+
+### Change Made
+Redesigned as an **additive surcharge**: the grid value is an extra fee added on top of the normal room rate, regardless of booking duration.
+
+**New `calculateCost()` logic in `venuepro_booking.html`:**
+```javascript
+// Step 1: Base cost from room rate + duration tier (unchanged)
+if (duration >= 6)           cost = dayRate;           // Full day
+else if (halfRate && dur>=3) cost = halfRate;           // Half day
+else                         cost = (dur/8) * dayRate;  // Pro-rated
+
+// Step 2: Add event surcharge on top
+const sur = pricingData.find(
+    p => p.room_id == roomId && p.event_type_id == currentEventTypeId
+);
+if (sur && parseFloat(sur.day_rate) > 0) {
+    cost += parseFloat(sur.day_rate);
+    rateType += ` + ${formatGBP(surcharge)} event surcharge`;
+}
+```
+
+**Example with room day_rate = £400, half_rate = £200, CHRISTENING surcharge = £250:**
+
+| Duration | Before (replacement) | After (surcharge) |
+|---|---|---|
+| Full day (8hrs) | £250 | £400 + £250 = **£650** |
+| Half day (4hrs) | £250 | £200 + £250 = **£450** |
+| Pro-rated (2hrs) | £250 | £100 + £250 = **£350** |
+
+The cost breakdown on the booking form now explicitly shows the surcharge component, e.g.:
+> *Full Day + £250.00 event surcharge | 8.0 hrs | Suggested deposit 30% = £195.00*
+
+### Admin Config Changes
+- Section renamed from "Price Override Grid" to **"Event Surcharge Grid"**
+- Input placeholder changed from the room's day_rate to `0` (blank = no surcharge)
+- Help text updated to: *"Enter a surcharge amount (£) to add on top of the room's normal rate for specific event types. Blank = no surcharge."*
+
+### What You Need To Do
+Already deployed to GitHub Pages (commit `cc116b1`). No further action required.
+
+---
+
+## Updated Summary: Outstanding Actions Required (n8n Re-imports)
+
+| Workflow File | Fixes Included | Status |
+|---|---|---|
+| `VenuePro - Staff Login (Native Crypto) (1).json` | Hardcoded pepper | Needs re-import |
+| `VenuePro - User Manager (Final Database Fix).json` | Hardcoded pepper | Needs re-import |
+| `VenuePro - Config Manager.json` | Role check removed, UUID parseInt fixed | Needs re-import |
+| `VenuePro - Complete System API (Status Fix) (2).json` | Sequential dashboard chain | Needs re-import |
+| `VenuePro - Make Booking (Platinum Fix) (1).json` | Issues #11-#14: NaN fix, booking_date fix, chain reorder, trust frontend totals | Needs re-import |
+
+---
+
+## Frontend Files — Session 2 Deployments
+
+| File | Change | Commit |
+|---|---|---|
+| `venuepro_booking.html` | Additive surcharge pricing logic | `cc116b1` |
+| `admin-config.html` | "Event Surcharge Grid" label + help text | `cc116b1` |
+
+Live at: **https://andyjay72.github.io/VenuePro/**
