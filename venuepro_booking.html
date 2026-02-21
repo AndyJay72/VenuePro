@@ -352,9 +352,12 @@
                 window.location.href = 'login.html';
             }
         }        
-        const REQUESTS_API = 'https://n8n.srv1090894.hstgr.cloud/webhook/get-pending-requests';
-        const BOOKING_API = 'https://n8n.srv1090894.hstgr.cloud/webhook/make-booking';
-        const CHECK_API  = 'https://n8n.srv1090894.hstgr.cloud/webhook/check-availability';
+        const BASE_API     = 'https://n8n.srv1090894.hstgr.cloud/webhook';
+        const REQUESTS_API = BASE_API + '/get-pending-requests';
+        const BOOKING_API  = BASE_API + '/make-booking';
+        const CHECK_API    = BASE_API + '/check-availability';
+        const ROOMS_API    = BASE_API + '/get-rooms';
+        const PRICING_API  = BASE_API + '/get-pricing';
 
         function getAuthHeaders() {
             return { 'Authorization': 'Bearer ' + (localStorage.getItem('vp_token') || '') };
@@ -362,15 +365,25 @@
 
         
         let requestsData = [];
+        let roomsData = [];
+        let pricingData = [];
+        let currentEventTypeId = null;
         let _availCheckTimeout = null;
-        
-        const roomRates = {
-            "Conference Room A": { hourly: 100, daily: 500, depositPct: 30 },
-            "Banquet Hall B": { hourly: 200, daily: 1000, depositPct: 40 },
-            "Grand Ballroom": { hourly: 250, daily: 2500, depositPct: 20 },
-            "Executive Suite": { hourly: 50, daily: 400, depositPct: 50 },
-            "Garden Terrace": { hourly: 100, daily: 800, depositPct: 30 }
-        };
+
+        async function loadRoomsAndPricing() {
+            try {
+                const [rRes, pRes] = await Promise.all([
+                    fetch(ROOMS_API,   { headers: getAuthHeaders() }),
+                    fetch(PRICING_API, { headers: getAuthHeaders() })
+                ]);
+                const rJson = await rRes.json();
+                const pJson = await pRes.json();
+                roomsData   = rJson.data || (Array.isArray(rJson) ? rJson : []);
+                pricingData = pJson.data || (Array.isArray(pJson) ? pJson : []);
+            } catch(e) {
+                console.error('Failed to load rooms/pricing data:', e);
+            }
+        }
 
         const formatGBP = (num) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(num);
         function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); }
@@ -429,6 +442,7 @@
             
             document.getElementById('roomName').value = req.room_name || '';
             document.getElementById('roomId').value = req.room_id || '';
+            currentEventTypeId = req.event_type_id || null;
 
             if (req.requested_date) document.getElementById('bookingDate').value = req.requested_date.split('T')[0];
             
@@ -447,37 +461,72 @@
             checkAvailability();
         }
 
-        function calculateCost() {
-            const room = document.getElementById('roomName').value;
-            const start = document.getElementById('startTime').value;
-            const end = document.getElementById('endTime').value;
-            
-            if(!room || !start || !end) return;
+        const DEPOSIT_PCT = 30; // Default deposit: 30% of total
 
-            const getHour = (t) => { const [h,m] = t.split(':').map(Number); return h + (m/60); };
+        function calculateCost() {
+            const roomId = document.getElementById('roomId').value;
+            const start  = document.getElementById('startTime').value;
+            const end    = document.getElementById('endTime').value;
+
+            if (!roomId || !start || !end) return;
+
+            const getHour = (t) => { const [h, m] = t.split(':').map(Number); return h + (m / 60); };
             const duration = getHour(end) - getHour(start);
 
             if (duration <= 0) {
-                document.getElementById('costBreakdown').innerText = "Invalid Time";
+                document.getElementById('costBreakdown').innerText = 'End time must be after start time';
                 return;
             }
 
-            const rates = roomRates[room] || { hourly: 0, daily: 0, depositPct: 0 };
+            // Find room data from API
+            const room = roomsData.find(r => String(r.id) === String(roomId));
+            if (!room) {
+                document.getElementById('costBreakdown').innerText = 'Room data not loaded — refresh and try again';
+                return;
+            }
+
+            // Base rate: check for event-type pricing override first
+            let baseRate = parseFloat(room.day_rate) || 0;
+            let rateSource = 'Default day rate';
+            if (currentEventTypeId) {
+                const override = pricingData.find(
+                    p => String(p.room_id) === String(roomId) && String(p.event_type_id) === String(currentEventTypeId)
+                );
+                if (override && override.day_rate != null) {
+                    baseRate = parseFloat(override.day_rate);
+                    rateSource = 'Custom rate (event type override)';
+                }
+            }
+
+            const halfRate = room.half_rate ? parseFloat(room.half_rate) : null;
+
             let cost = 0;
-            let type = "";
+            let rateType = '';
 
-            if (duration > 5) { cost = rates.daily; type = "Daily Rate"; }
-            else { cost = rates.hourly * duration; type = "Hourly Rate"; }
+            if (duration >= 6) {
+                // Full day
+                cost = baseRate;
+                rateType = `Full Day — ${rateSource}`;
+            } else if (halfRate && duration >= 3) {
+                // Half day (3–5.9 hrs) — use half_rate if set
+                cost = halfRate;
+                rateType = 'Half-Day Rate';
+            } else {
+                // Pro-rate: fraction of full day (assumes 8-hr day)
+                cost = (duration / 8) * baseRate;
+                rateType = `Pro-rated ${duration.toFixed(1)}hrs of 8hr day`;
+            }
 
-            const deposit = cost * (rates.depositPct / 100);
+            const deposit = cost * (DEPOSIT_PCT / 100);
 
-            // UI UPDATES
             document.getElementById('totalDisplay').innerText = formatGBP(cost);
-            document.getElementById('totalAmount').value = cost.toFixed(2);
-            document.getElementById('payAmount').value = deposit.toFixed(2);
-            
-            document.getElementById('costBreakdown').innerText = `${type} | ${duration.toFixed(1)}hrs | Deposit ${rates.depositPct}%`;
-            document.getElementById('btnDeposit').innerHTML = `<i class="fa-solid fa-coins"></i> Pay Deposit (${formatGBP(deposit)})`;
+            document.getElementById('totalAmount').value      = cost.toFixed(2);
+            document.getElementById('depositAmount').value    = deposit.toFixed(2);
+            document.getElementById('payAmount').value        = deposit.toFixed(2);
+            document.getElementById('costBreakdown').innerText =
+                `${rateType} | ${duration.toFixed(1)} hrs | Suggested deposit ${DEPOSIT_PCT}% = ${formatGBP(deposit)}`;
+            document.getElementById('btnDeposit').innerHTML =
+                `<i class="fa-solid fa-coins"></i> Pay Deposit (${formatGBP(deposit)})`;
         }
 
         async function checkAvailability() {
@@ -604,6 +653,7 @@
         }
 
         populateTimeDropdowns();
+        loadRoomsAndPricing();
         loadRequests();
     </script>
 </body>
