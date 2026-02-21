@@ -581,13 +581,20 @@
         }
 
         async function submitBooking(type) {
-            const total = document.getElementById('totalAmount').value;
-            let payAmount = document.getElementById('payAmount').value;
-            const custId = document.getElementById('customerId').value;
+            const totalRaw = document.getElementById('totalAmount').value;
+            const total    = parseFloat(totalRaw);
+            let payAmount  = parseFloat(document.getElementById('payAmount').value);
+            const custId   = document.getElementById('customerId').value;
 
-            // SAFETY CHECK
-            if(!custId) {
-                alert("Error: Missing Customer ID. Please re-select the request.");
+            // SAFETY CHECK — missing customer
+            if (!custId) {
+                alert('Error: Missing Customer ID. Please re-select the request.');
+                return;
+            }
+
+            // SAFETY CHECK — cost not calculated yet (race condition or room not found)
+            if (!total || isNaN(total) || total <= 0) {
+                alert('Total cost has not been calculated yet. Please wait a moment and try again, or re-select the request.');
                 return;
             }
 
@@ -621,18 +628,18 @@
             }
 
             const payload = {
-                customer_id: custId,
-                customer_name: document.getElementById('customerName').value,
+                customer_id:    custId,
+                customer_name:  document.getElementById('customerName').value,
                 customer_email: document.getElementById('customerEmail').value,
-                request_id: document.getElementById('requestId').value,
-                room_id: document.getElementById('roomId').value,
-                room_name: document.getElementById('roomName').value,
-                booking_date: document.getElementById('bookingDate').value,
-                start_time: document.getElementById('startTime').value,
-                end_time: document.getElementById('endTime').value,
-                total_amount: total,
-                payment_amount: payAmount,
-                payment_type: type === 'full' ? 'full' : 'deposit'
+                request_id:     document.getElementById('requestId').value,
+                room_id:        document.getElementById('roomId').value,
+                room_name:      document.getElementById('roomName').value,
+                booking_date:   document.getElementById('bookingDate').value,
+                start_time:     document.getElementById('startTime').value,
+                end_time:       document.getElementById('endTime').value,
+                total_amount:   total,           // number, not string
+                payment_amount: payAmount,       // number, not string
+                payment_type:   type === 'full' ? 'full' : 'deposit'
             };
 
             try {
@@ -653,8 +660,9 @@
         }
 
         populateTimeDropdowns();
-        loadRoomsAndPricing();
-        loadRequests();
+        // Load rooms/pricing FIRST, then requests — prevents race condition where
+        // fillDetails() calls calculateCost() before roomsData is populated
+        loadRoomsAndPricing().then(() => loadRequests());
     </script>
 </body>
 </html>
