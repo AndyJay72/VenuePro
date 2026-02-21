@@ -442,7 +442,7 @@
             
             document.getElementById('roomName').value = req.room_name || '';
             document.getElementById('roomId').value = req.room_id || '';
-            currentEventTypeId = req.event_type_id || null;
+            currentEventTypeId = req.event_type || null; // match by name e.g. "Wedding"
 
             if (req.requested_date) document.getElementById('bookingDate').value = req.requested_date.split('T')[0];
             
@@ -506,7 +506,9 @@
             // Step 2: Add event-type surcharge on top (if configured in Pricing Grid)
             if (currentEventTypeId) {
                 const sur = pricingData.find(
-                    p => String(p.room_id) === String(roomId) && String(p.event_type_id) === String(currentEventTypeId)
+                    p => String(p.room_id) === String(roomId) &&
+                         p.event_type_name &&
+                         p.event_type_name.toLowerCase() === currentEventTypeId.toLowerCase()
                 );
                 if (sur && sur.day_rate != null && parseFloat(sur.day_rate) > 0) {
                     const surcharge = parseFloat(sur.day_rate);
