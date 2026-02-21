@@ -41,6 +41,17 @@
         .fc-scrollgrid { border: 1px solid var(--border) !important; }
         .fc-bg-event { opacity: 0.3; }
 
+        /* FIX: FullCalendar list view dark theme */
+        .fc-list { background: transparent !important; }
+        .fc-list-table td { background: transparent !important; border-color: var(--border) !important; color: var(--text-main) !important; }
+        .fc-list-event:hover td { background: rgba(99, 102, 241, 0.1) !important; color: var(--text-main) !important; }
+        .fc-list-day-cushion { background: #182235 !important; }
+        .fc-list-day-text, .fc-list-day-side-text { color: var(--text-muted) !important; }
+        .fc-list-event-title a { color: var(--text-main) !important; text-decoration: none; }
+        .fc-list-event-time { color: var(--text-muted) !important; }
+        .fc-list-empty { background: var(--bg-card) !important; color: var(--text-muted) !important; }
+        .fc-list-sticky { background: transparent !important; }
+
         /* MODAL */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(5px); z-index: 2000; display: none; justify-content: center; align-items: center; opacity: 0; transition: opacity 0.3s ease; }
         .modal-overlay.open { display: flex; opacity: 1; }
@@ -75,17 +86,17 @@
             <a href="venuepro_booking.html" class="nav-link"><i class="fa-solid fa-building"></i> Event Booking</a>  
             <a href="final-payment.html" class="nav-link"><i class="fa-solid fa-check-double"></i> Final Payment</a>  
             <a href="users.html" class="nav-link"> <i class="fa-solid fa-user-shield"></i> Users</a>
-            <a href="admin-config.html"    class="nav-link active"><i class="fa-solid fa-sliders"></i> Config</a>
             <a href="#" onclick="logout()" class="nav-link" style="margin-top: auto; color: #ef4444; border-top: 1px solid rgba(255,255,255,0.05);"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
         </nav>
     </aside>
 
     <main>
-        <header>
+        <header style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
             <div style="display:flex; align-items:center;">
                 <button class="menu-toggle" onclick="toggleMenu()"><i class="fa-solid fa-bars"></i></button>
                 <h1 style="font-size: 1.8rem; font-weight: 700;">Event Calendar</h1>
             </div>
+            <a href="calendar.html" target="_blank" rel="noopener" title="Open calendar in new tab" style="display:flex; align-items:center; gap:8px; background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); color:var(--primary); padding:8px 14px; border-radius:8px; text-decoration:none; font-size:0.85rem; font-weight:600; transition:0.2s;" onmouseover="this.style.background='rgba(99,102,241,0.2)'" onmouseout="this.style.background='rgba(99,102,241,0.1)'"><i class="fa-solid fa-arrow-up-right-from-square"></i> Open in new tab</a>
         </header>
 
         <div id="calendar"></div>
@@ -95,7 +106,10 @@
     <div id="eventModal" class="modal-overlay" onclick="closeModal(event)">
         <div class="modal-card" onclick="event.stopPropagation()">
             <div class="modal-header" id="e-title">Event Title</div>
-            <div class="modal-row"><span>Time:</span> <span class="modal-val" id="e-time">--</span></div>
+            <div class="modal-row"><span>Customer:</span> <span class="modal-val" id="e-customer">--</span></div>
+            <div class="modal-row"><span>Email:</span> <span class="modal-val" id="e-email" style="font-size:0.88rem;">--</span></div>
+            <div class="modal-row"><span>Phone:</span> <span class="modal-val" id="e-phone">--</span></div>
+            <div class="modal-row" style="border-top:1px solid var(--border); padding-top:10px; margin-top:5px;"><span>Time:</span> <span class="modal-val" id="e-time">--</span></div>
             <div class="modal-row"><span>Room:</span> <span class="modal-val" id="e-room">--</span></div>
             <div class="modal-row"><span>Status:</span> <span class="modal-val" id="e-status">--</span></div>
             <button class="close-btn" onclick="closeModal()">Close</button>
@@ -153,7 +167,10 @@
                             extendedProps: {
                                 room: e.room_name || 'Unknown',
                                 status: parseFloat(e.balance_due) > 0 ? 'Pending Payment' : 'Confirmed',
-                                time: `${startT} - ${endT}`
+                                time: `${startT} - ${endT}`,
+                                customer_name: e.customer_name || 'Guest',
+                                customer_email: e.customer_email || e.email || '',
+                                customer_phone: e.customer_phone || e.phone || ''
                             }
                         };
                     });
@@ -170,6 +187,9 @@
                     eventClick: function(info) {
                         const props = info.event.extendedProps;
                         document.getElementById('e-title').innerText = info.event.title;
+                        document.getElementById('e-customer').innerText = props.customer_name || 'N/A';
+                        document.getElementById('e-email').innerText = props.customer_email || 'N/A';
+                        document.getElementById('e-phone').innerText = props.customer_phone || 'N/A';
                         document.getElementById('e-time').innerText = props.time;
                         document.getElementById('e-room').innerText = props.room;
                         document.getElementById('e-status').innerText = props.status;
