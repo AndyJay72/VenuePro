@@ -380,6 +380,10 @@ function getAuthHeaders() {
         'Authorization': 'Bearer ' + (localStorage.getItem('vp_token') || '')
     };
 }
+function withRole(obj) {
+    const u = JSON.parse(localStorage.getItem('vp_user') || '{}');
+    return { ...obj, userRole: u.role || 'admin' };
+}
 
 // ─────────────────────────────────────────────
 // STATE
@@ -465,7 +469,7 @@ async function addRoom() {
     try {
         const res = await fetch(API.createRoom, {
             method: 'POST', headers: getAuthHeaders(),
-            body: JSON.stringify({ name, capacity: cap || null, day_rate: dr, half_rate: hr || null, description: desc || null })
+            body: JSON.stringify(withRole({ name, capacity: cap || null, day_rate: dr, half_rate: hr || null, description: desc || null }))
         });
         if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Failed'); }
         showToast('Room added!');
@@ -512,7 +516,7 @@ async function saveModal() {
                 is_active:   document.getElementById('me_active').classList.contains('on')
             };
             if (!payload.name) throw new Error('Room name is required');
-            const res = await fetch(API.updateRoom, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(payload) });
+            const res = await fetch(API.updateRoom, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(withRole(payload)) });
             if (!res.ok) throw new Error('Update failed');
             showToast('Room updated!');
             await loadRooms();
@@ -524,7 +528,7 @@ async function saveModal() {
                 is_active:   document.getElementById('me_active').classList.contains('on')
             };
             if (!payload.name) throw new Error('Name is required');
-            const res = await fetch(API.updateEventType, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(payload) });
+            const res = await fetch(API.updateEventType, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(withRole(payload)) });
             if (!res.ok) throw new Error('Update failed');
             showToast('Event type updated!');
             await loadEventTypes();
@@ -537,7 +541,7 @@ async function saveModal() {
 async function softDeleteRoom(id, name) {
     if (!confirm(`Deactivate "${name}"? It won't appear in booking forms but historical data is kept.`)) return;
     try {
-        await fetch(API.deleteRoom, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ room_id: id }) });
+        await fetch(API.deleteRoom, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(withRole({ room_id: id })) });
         showToast('Room deactivated');
         await loadRooms();
     } catch(e) { showToast('Error', 'error'); }
@@ -550,7 +554,7 @@ async function restoreRoom(id, name) {
     try {
         await fetch(API.updateRoom, {
             method: 'POST', headers: getAuthHeaders(),
-            body: JSON.stringify({ ...r, id, is_active: true })
+            body: JSON.stringify(withRole({ ...r, id, is_active: true }))
         });
         showToast('Room re-activated');
         await loadRooms();
@@ -602,7 +606,7 @@ async function addEventType() {
     try {
         const res = await fetch(API.createEventType, {
             method: 'POST', headers: getAuthHeaders(),
-            body: JSON.stringify({ name, description: desc || null })
+            body: JSON.stringify(withRole({ name, description: desc || null }))
         });
         if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.error || 'Failed'); }
         showToast('Event type added!');
@@ -631,7 +635,7 @@ function editEventType(id) {
 async function softDeleteEventType(id, name) {
     if (!confirm(`Deactivate "${name}"?`)) return;
     try {
-        await fetch(API.deleteEventType, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify({ event_type_id: id }) });
+        await fetch(API.deleteEventType, { method: 'POST', headers: getAuthHeaders(), body: JSON.stringify(withRole({ event_type_id: id })) });
         showToast('Event type deactivated');
         await loadEventTypes();
     } catch(e) { showToast('Error', 'error'); }
@@ -644,7 +648,7 @@ async function restoreEventType(id, name) {
     try {
         await fetch(API.updateEventType, {
             method: 'POST', headers: getAuthHeaders(),
-            body: JSON.stringify({ ...et, id, is_active: true })
+            body: JSON.stringify(withRole({ ...et, id, is_active: true }))
         });
         showToast('Event type re-activated');
         await loadEventTypes();
@@ -727,7 +731,7 @@ async function savePricingCell(input) {
     try {
         const res = await fetch(API.setPricing, {
             method: 'POST', headers: getAuthHeaders(),
-            body: JSON.stringify({ room_id, event_type_id, day_rate })
+            body: JSON.stringify(withRole({ room_id, event_type_id, day_rate }))
         });
         if (!res.ok) throw new Error('Failed');
         input.classList.remove('unsaved');
