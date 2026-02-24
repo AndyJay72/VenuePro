@@ -159,6 +159,18 @@
         .balance-pill { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.35); padding: 5px 10px; border-radius: 8px; font-size: 0.78rem; font-weight: 700; white-space: nowrap; }
         .pb-pay-btn { background: var(--success); color: #0f172a; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 5px; transition: 0.2s; }
         .pb-pay-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+        .pb-info-icon { color: var(--text-muted); font-size: 0.85rem; cursor: pointer; padding: 6px; border-radius: 6px; transition: 0.2s; flex-shrink: 0; }
+        .pb-info-icon:hover { color: white; background: rgba(255,255,255,0.08); }
+
+        /* --- SEARCH --- */
+        .search-wrapper { position: relative; }
+        .search-wrapper i { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 0.75rem; pointer-events: none; }
+        .search-input { background: rgba(0,0,0,0.35); border: 1px solid var(--border); border-radius: 8px; color: white; padding: 7px 10px 7px 28px; font-size: 0.82rem; outline: none; transition: border-color 0.2s; width: 190px; }
+        .search-input::placeholder { color: var(--text-muted); }
+        .search-input:focus { border-color: var(--primary); }
+
+        /* --- BOOKING DETAIL MODAL extras --- */
+        .bm-divider { grid-column: span 2; border: none; border-top: 1px solid var(--border); margin: 0.25rem 0; }
 
         @media (max-width: 1200px) { .grid-split { grid-template-columns: 1fr; } }
         @media (max-width: 900px) { .stats-grid { grid-template-columns: 1fr; } .modal-grid { grid-template-columns: 1fr; } }
@@ -214,7 +226,13 @@
             </div>
             <!-- BOOKINGS -->
             <div class="table-container">
-                <div class="table-header"><h3 style="color: var(--success);"><i class="fa-solid fa-calendar-check"></i> Upcoming Events</h3></div>
+                <div class="table-header">
+                    <h3 style="color: var(--success);"><i class="fa-solid fa-calendar-check"></i> Upcoming Events</h3>
+                    <div class="search-wrapper">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input id="search-upcoming" class="search-input" type="text" placeholder="Search name or email..." oninput="filterUpcoming()">
+                    </div>
+                </div>
                 <div class="table-wrapper">
                     <table>
                         <thead><tr><th>Date</th><th>Customer</th><th>Room</th><th>Balance</th></tr></thead>
@@ -226,9 +244,15 @@
 
         <!-- PRE-BOOKED SECTION -->
         <div class="section-container">
-            <div class="section-header">
+            <div class="section-header" style="flex-wrap:wrap; gap:0.75rem;">
                 <h3 style="color: var(--warning);"><i class="fa-solid fa-coins"></i> Pre-Booked <span style="font-size:0.75rem; color:var(--text-muted); font-weight:400; margin-left:8px;">Deposit paid — balance outstanding</span></h3>
-                <span id="prebooked-count" style="font-size:0.8rem; color:var(--text-muted);"></span>
+                <div style="display:flex; align-items:center; gap:1rem;">
+                    <span id="prebooked-count" style="font-size:0.8rem; color:var(--text-muted);"></span>
+                    <div class="search-wrapper">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input id="search-prebooked" class="search-input" type="text" placeholder="Search name or email..." oninput="filterPreBooked()">
+                    </div>
+                </div>
             </div>
             <div class="section-body" id="prebooked-list">
                 <div style="text-align:center; padding:1.5rem; color:var(--text-muted);"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading...</div>
@@ -259,6 +283,29 @@
         </div>
     </div>
 
+    <!-- BOOKING DETAIL MODAL -->
+    <div id="bookMod" class="modal-overlay" onclick="closeBookingModal(event)">
+        <div class="modal-card" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="modal-title"><i class="fa-solid fa-calendar-check" style="color:var(--success)"></i> Booking Details</div>
+                <button class="modal-close" onclick="closeBookingModal()">&times;</button>
+            </div>
+            <div class="modal-grid">
+                <div class="detail-group"><label>Customer</label><div class="detail-value" id="bm-name">--</div></div>
+                <div class="detail-group"><label>Email</label><div class="detail-value" id="bm-email" style="font-size:0.9rem;">--</div></div>
+                <div class="detail-group"><label>Room</label><div class="detail-value" id="bm-room">--</div></div>
+                <div class="detail-group"><label>Date</label><div class="detail-value" id="bm-date">--</div></div>
+                <div class="detail-group"><label>Time Slot</label><div class="detail-value" id="bm-time">--</div></div>
+                <div class="detail-group"><label>Status</label><div class="detail-value" id="bm-status">--</div></div>
+                <div class="detail-group"><label>Total Amount</label><div class="detail-value" id="bm-total">--</div></div>
+                <div class="detail-group"><label>Balance Due</label><div class="detail-value" id="bm-balance">--</div></div>
+            </div>
+            <div class="modal-actions" id="bm-buttons">
+                <button class="btn-modal btn-close" onclick="closeBookingModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container"></div>
 
     <script>
@@ -277,6 +324,8 @@
         const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         let revenueMonth = new Date().getMonth() + 1;
         let revenueYear  = new Date().getFullYear();
+        let allUpcomingBookings = [];
+        let allPreBookedBookings = [];
 
         const formatCurrency = (num) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(num);
         function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); }
@@ -404,17 +453,9 @@
                     }
                 });
 
-                if (uniqueBookings.length === 0) {
-                    bookBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 2rem;">No upcoming events</td></tr>`;
-                } else {
-                    bookBody.innerHTML = uniqueBookings.map(b => `
-                        <tr>
-                            <td><div style="font-weight: 600;">${new Date(b.booking_date).toLocaleDateString('en-GB', {day: 'numeric', month: 'short'})}</div><div style="font-size: 0.8rem; color: var(--text-muted);">Today</div></td>
-                            <td><div style="font-weight: 500;">${b.customer_name || 'Guest'}</div></td>
-                            <td>${b.room_name}</td>
-                            <td><span class="status-badge ${parseFloat(b.balance_due) > 0 ? 'balance' : 'paid'}">${parseFloat(b.balance_due) > 0 ? formatCurrency(b.balance_due) + ' Due' : 'Paid'}</span></td>
-                        </tr>`).join('');
-                }
+                allUpcomingBookings = uniqueBookings;
+                document.getElementById('search-upcoming').value = '';
+                renderUpcomingRows(allUpcomingBookings);
             } catch (error) { console.error('Error:', error); } finally { refreshIcon.classList.remove('fa-spin'); }
         }
 
@@ -500,43 +541,16 @@
                 const raw  = json.data || (Array.isArray(json) ? json : []);
                 const now  = new Date(); now.setHours(0,0,0,0);
 
-                const preBooked = raw.filter(b => {
+                allPreBookedBookings = raw.filter(b => {
                     if (b.status === 'cancelled') return false;
                     const bDate   = new Date(b.booking_date);
                     const balance = parseFloat(b.balance_due || 0);
                     return bDate >= now && balance > 0;
                 }).sort((a, b) => new Date(a.booking_date) - new Date(b.booking_date));
 
-                countEl.innerText = preBooked.length ? `${preBooked.length} booking${preBooked.length === 1 ? '' : 's'}` : '';
-
-                if (preBooked.length === 0) {
-                    container.innerHTML = `<div style="text-align:center; padding:1.5rem; color:var(--text-muted);"><i class="fa-solid fa-check-circle" style="color:var(--success)"></i> No outstanding balances</div>`;
-                    return;
-                }
-
-                container.innerHTML = preBooked.map(b => {
-                    const d       = new Date(b.booking_date);
-                    const day     = d.getDate();
-                    const mon     = d.toLocaleString('default', { month: 'short' });
-                    const balance = parseFloat(b.balance_due || 0);
-                    return `<div class="prebooked-card">
-                        <div class="pb-left">
-                            <div class="pb-date"><div class="day">${day}</div><div class="mon">${mon}</div></div>
-                            <div class="pb-info">
-                                <h4>${b.customer_name || 'Guest'}</h4>
-                                <div class="pb-meta">
-                                    <span><i class="fa-solid fa-layer-group"></i> ${b.room_name}</span>
-                                    <span><i class="fa-solid fa-clock"></i> ${(b.start_time||'').slice(0,5)} – ${(b.end_time||'').slice(0,5)}</span>
-                                    <span><i class="fa-solid fa-sterling-sign"></i> Total: ${formatCurrency(b.total_amount)}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="pb-right">
-                            <span class="balance-pill"><i class="fa-solid fa-triangle-exclamation"></i> ${formatCurrency(balance)} due</span>
-                            <button class="pb-pay-btn" onclick="payPreBooked('${b.id}','${b.customer_id}',${balance})"><i class="fa-solid fa-credit-card"></i> Pay</button>
-                        </div>
-                    </div>`;
-                }).join('');
+                countEl.innerText = allPreBookedBookings.length ? `${allPreBookedBookings.length} booking${allPreBookedBookings.length === 1 ? '' : 's'}` : '';
+                document.getElementById('search-prebooked').value = '';
+                renderPreBookedCards(allPreBookedBookings);
             } catch(e) {
                 container.innerHTML = `<div style="text-align:center; padding:1.5rem; color:var(--text-muted);">Could not load pre-booked data</div>`;
                 console.error('loadPreBooked error:', e);
@@ -561,6 +575,113 @@
                     loadPreBooked();
                 } else { showToast('Payment failed', 'error'); }
             } catch(e) { showToast('Connection error', 'error'); }
+        }
+
+        // ---- RENDER HELPERS ----
+        function renderUpcomingRows(list) {
+            const bookBody = document.getElementById('table-bookings');
+            if (!list || list.length === 0) {
+                bookBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 2rem;">No matching bookings</td></tr>`;
+                return;
+            }
+            bookBody.innerHTML = list.map(b => {
+                const dataStr = encodeURIComponent(JSON.stringify(b));
+                return `<tr onclick="openBookingModal('${dataStr}')" style="cursor:pointer;">
+                    <td><div style="font-weight:600;">${new Date(b.booking_date).toLocaleDateString('en-GB', {day:'numeric', month:'short'})}</div></td>
+                    <td><div style="font-weight:500;">${b.customer_name || 'Guest'}</div>${b.customer_email ? `<div style="font-size:0.75rem; color:var(--text-muted);">${b.customer_email}</div>` : ''}</td>
+                    <td>${b.room_name}</td>
+                    <td><span class="status-badge ${parseFloat(b.balance_due) > 0 ? 'balance' : 'paid'}">${parseFloat(b.balance_due) > 0 ? formatCurrency(b.balance_due) + ' Due' : 'Paid'}</span></td>
+                </tr>`;
+            }).join('');
+        }
+
+        function renderPreBookedCards(list) {
+            const container = document.getElementById('prebooked-list');
+            if (!list || list.length === 0) {
+                container.innerHTML = `<div style="text-align:center; padding:1.5rem; color:var(--text-muted);"><i class="fa-solid fa-check-circle" style="color:var(--success)"></i> No outstanding balances</div>`;
+                return;
+            }
+            container.innerHTML = list.map(b => {
+                const d       = new Date(b.booking_date);
+                const day     = d.getDate();
+                const mon     = d.toLocaleString('default', { month: 'short' });
+                const balance = parseFloat(b.balance_due || 0);
+                const dataStr = encodeURIComponent(JSON.stringify(b));
+                return `<div class="prebooked-card" onclick="openBookingModal('${dataStr}')" style="cursor:pointer;">
+                    <div class="pb-left">
+                        <div class="pb-date"><div class="day">${day}</div><div class="mon">${mon}</div></div>
+                        <div class="pb-info">
+                            <h4>${b.customer_name || 'Guest'}</h4>
+                            <div class="pb-meta">
+                                <span><i class="fa-solid fa-layer-group"></i> ${b.room_name}</span>
+                                <span><i class="fa-solid fa-clock"></i> ${(b.start_time||'').slice(0,5)} – ${(b.end_time||'').slice(0,5)}</span>
+                                <span><i class="fa-solid fa-sterling-sign"></i> Total: ${formatCurrency(b.total_amount)}</span>
+                                ${b.customer_email ? `<span><i class="fa-solid fa-envelope"></i> ${b.customer_email}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="pb-right">
+                        <span class="balance-pill"><i class="fa-solid fa-triangle-exclamation"></i> ${formatCurrency(balance)} due</span>
+                        <button class="pb-pay-btn" onclick="event.stopPropagation(); payPreBooked('${b.id}','${b.customer_id}',${balance})"><i class="fa-solid fa-credit-card"></i> Pay</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // ---- SEARCH FILTERS ----
+        function filterUpcoming() {
+            const term = document.getElementById('search-upcoming').value.toLowerCase().trim();
+            const filtered = term
+                ? allUpcomingBookings.filter(b =>
+                    (b.customer_name||'').toLowerCase().includes(term) ||
+                    (b.customer_email||'').toLowerCase().includes(term))
+                : allUpcomingBookings;
+            renderUpcomingRows(filtered);
+        }
+
+        function filterPreBooked() {
+            const term = document.getElementById('search-prebooked').value.toLowerCase().trim();
+            const filtered = term
+                ? allPreBookedBookings.filter(b =>
+                    (b.customer_name||'').toLowerCase().includes(term) ||
+                    (b.customer_email||'').toLowerCase().includes(term))
+                : allPreBookedBookings;
+            renderPreBookedCards(filtered);
+        }
+
+        // ---- BOOKING DETAIL MODAL ----
+        function openBookingModal(dataStr) {
+            const b = JSON.parse(decodeURIComponent(dataStr));
+            document.getElementById('bm-name').innerText  = b.customer_name || 'N/A';
+            document.getElementById('bm-email').innerText = b.customer_email || 'N/A';
+            document.getElementById('bm-room').innerText  = b.room_name || 'N/A';
+            document.getElementById('bm-date').innerText  = b.booking_date
+                ? new Date(b.booking_date).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'long', year:'numeric'})
+                : 'N/A';
+            const st = (b.start_time||'').slice(0,5);
+            const et = (b.end_time||'').slice(0,5);
+            document.getElementById('bm-time').innerText  = st && et ? `${st} – ${et}` : 'N/A';
+            const balance = parseFloat(b.balance_due || 0);
+            const isPaid  = balance <= 0;
+            document.getElementById('bm-status').innerHTML = isPaid
+                ? `<span style="color:var(--success); font-weight:700;"><i class="fa-solid fa-circle-check"></i> Fully Paid</span>`
+                : `<span style="color:var(--warning); font-weight:700;"><i class="fa-solid fa-coins"></i> Deposit Paid</span>`;
+            document.getElementById('bm-total').innerHTML   = `<span style="color:var(--success); font-weight:700;">${formatCurrency(b.total_amount || 0)}</span>`;
+            document.getElementById('bm-balance').innerHTML = isPaid
+                ? `<span style="color:var(--success);">None — fully paid</span>`
+                : `<span style="color:var(--warning); font-weight:700;">${formatCurrency(balance)}</span>`;
+            const btnContainer = document.getElementById('bm-buttons');
+            let btns = `<button class="btn-modal btn-close" onclick="closeBookingModal()">Close</button>`;
+            if (!isPaid) {
+                const safeId  = String(b.id).replace(/'/g,"\\'");
+                const safeCid = String(b.customer_id).replace(/'/g,"\\'");
+                btns = `<button class="btn-modal btn-pay" onclick="closeBookingModal(); payPreBooked('${safeId}','${safeCid}',${balance})"><i class="fa-solid fa-credit-card"></i> Pay Balance</button>` + btns;
+            }
+            btnContainer.innerHTML = btns;
+            document.getElementById('bookMod').classList.add('open');
+        }
+        function closeBookingModal(e) {
+            if (!e || e.target.id === 'bookMod') document.getElementById('bookMod').classList.remove('open');
         }
 
         startClock(); loadDashboard(); loadPreBooked(); setInterval(() => { loadDashboard(); loadPreBooked(); }, 60000);
