@@ -142,6 +142,24 @@
         .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 90; backdrop-filter: blur(2px); }
         .overlay.active { display: block; }
 
+        /* --- PRE-BOOKED SECTION --- */
+        .section-container { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-top: 1.5rem; }
+        .section-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: rgba(30, 41, 59, 0.4); }
+        .section-body { padding: 1rem 1.25rem; }
+        .prebooked-card { background: rgba(0,0,0,0.2); border: 1px solid var(--border); border-left: 4px solid var(--warning); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; transition: background 0.2s; }
+        .prebooked-card:last-child { margin-bottom: 0; }
+        .prebooked-card:hover { background: rgba(255,255,255,0.04); }
+        .pb-date { background: rgba(255,255,255,0.05); padding: 6px 12px; border-radius: 8px; text-align: center; min-width: 52px; border: 1px solid var(--border); flex-shrink: 0; }
+        .pb-date .day { font-size: 1.1rem; font-weight: 700; color: white; line-height: 1; }
+        .pb-date .mon { font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted); }
+        .pb-left { display: flex; align-items: center; gap: 1rem; flex: 1; min-width: 0; }
+        .pb-info h4 { font-size: 0.95rem; font-weight: 600; color: white; margin: 0 0 3px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .pb-meta { font-size: 0.82rem; color: var(--text-muted); display: flex; gap: 12px; flex-wrap: wrap; }
+        .pb-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .balance-pill { background: rgba(245,158,11,0.15); color: var(--warning); border: 1px solid rgba(245,158,11,0.35); padding: 5px 10px; border-radius: 8px; font-size: 0.78rem; font-weight: 700; white-space: nowrap; }
+        .pb-pay-btn { background: var(--success); color: #0f172a; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 5px; transition: 0.2s; }
+        .pb-pay-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+
         @media (max-width: 1200px) { .grid-split { grid-template-columns: 1fr; } }
         @media (max-width: 900px) { .stats-grid { grid-template-columns: 1fr; } .modal-grid { grid-template-columns: 1fr; } }
         @media (max-width: 768px) { aside { transform: translateX(-100%); } aside.active { transform: translateX(0); } main { margin-left: 0; padding: 1.5rem 1rem; } .menu-toggle { display: flex; } .close-sidebar { display: block; } .header-left { width: 100%; } .header-right { width: 100%; justify-content: space-between; margin-top: 10px; } .live-clock { flex: 1; justify-content: center; } }
@@ -205,6 +223,17 @@
                 </div>
             </div>
         </div>
+
+        <!-- PRE-BOOKED SECTION -->
+        <div class="section-container">
+            <div class="section-header">
+                <h3 style="color: var(--warning);"><i class="fa-solid fa-coins"></i> Pre-Booked <span style="font-size:0.75rem; color:var(--text-muted); font-weight:400; margin-left:8px;">Deposit paid — balance outstanding</span></h3>
+                <span id="prebooked-count" style="font-size:0.8rem; color:var(--text-muted);"></span>
+            </div>
+            <div class="section-body" id="prebooked-list">
+                <div style="text-align:center; padding:1.5rem; color:var(--text-muted);"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading...</div>
+            </div>
+        </div>
     </main>
 
     <!-- MODAL -->
@@ -237,6 +266,8 @@
         const UPDATE_STATUS_URL      = 'https://n8n.srv1090894.hstgr.cloud/webhook/update-status';
         const CANCEL_PENDING_URL     = 'https://n8n.srv1090894.hstgr.cloud/webhook/cancel-pending';
         const MONTHLY_REVENUE_URL    = 'https://n8n.srv1090894.hstgr.cloud/webhook/get-monthly-revenue';
+        const ALL_BOOKINGS_URL       = 'https://n8n.srv1090894.hstgr.cloud/webhook/all-bookings';
+        const PAY_BALANCE_URL        = 'https://n8n.srv1090894.hstgr.cloud/webhook/pay-balance';
 
         function getAuthHeaders() {
             return { 'Authorization': 'Bearer ' + (localStorage.getItem('vp_token') || '') };
@@ -460,7 +491,79 @@
             } catch(e) { showToast('Failed to cancel', 'error'); }
         }
 
-        startClock(); loadDashboard(); setInterval(loadDashboard, 60000);
+        async function loadPreBooked() {
+            const container = document.getElementById('prebooked-list');
+            const countEl   = document.getElementById('prebooked-count');
+            try {
+                const res  = await fetch(ALL_BOOKINGS_URL, { headers: getAuthHeaders() });
+                const json = await res.json();
+                const raw  = json.data || (Array.isArray(json) ? json : []);
+                const now  = new Date(); now.setHours(0,0,0,0);
+
+                const preBooked = raw.filter(b => {
+                    if (b.status === 'cancelled') return false;
+                    const bDate   = new Date(b.booking_date);
+                    const balance = parseFloat(b.balance_due || 0);
+                    return bDate >= now && balance > 0;
+                }).sort((a, b) => new Date(a.booking_date) - new Date(b.booking_date));
+
+                countEl.innerText = preBooked.length ? `${preBooked.length} booking${preBooked.length === 1 ? '' : 's'}` : '';
+
+                if (preBooked.length === 0) {
+                    container.innerHTML = `<div style="text-align:center; padding:1.5rem; color:var(--text-muted);"><i class="fa-solid fa-check-circle" style="color:var(--success)"></i> No outstanding balances</div>`;
+                    return;
+                }
+
+                container.innerHTML = preBooked.map(b => {
+                    const d       = new Date(b.booking_date);
+                    const day     = d.getDate();
+                    const mon     = d.toLocaleString('default', { month: 'short' });
+                    const balance = parseFloat(b.balance_due || 0);
+                    return `<div class="prebooked-card">
+                        <div class="pb-left">
+                            <div class="pb-date"><div class="day">${day}</div><div class="mon">${mon}</div></div>
+                            <div class="pb-info">
+                                <h4>${b.customer_name || 'Guest'}</h4>
+                                <div class="pb-meta">
+                                    <span><i class="fa-solid fa-layer-group"></i> ${b.room_name}</span>
+                                    <span><i class="fa-solid fa-clock"></i> ${(b.start_time||'').slice(0,5)} – ${(b.end_time||'').slice(0,5)}</span>
+                                    <span><i class="fa-solid fa-sterling-sign"></i> Total: ${formatCurrency(b.total_amount)}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="pb-right">
+                            <span class="balance-pill"><i class="fa-solid fa-triangle-exclamation"></i> ${formatCurrency(balance)} due</span>
+                            <button class="pb-pay-btn" onclick="payPreBooked('${b.id}','${b.customer_id}',${balance})"><i class="fa-solid fa-credit-card"></i> Pay</button>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch(e) {
+                container.innerHTML = `<div style="text-align:center; padding:1.5rem; color:var(--text-muted);">Could not load pre-booked data</div>`;
+                console.error('loadPreBooked error:', e);
+            }
+        }
+
+        async function payPreBooked(bookingId, customerId, balance) {
+            const amount = prompt(`Enter payment amount (Balance Due: £${balance.toFixed(2)})`, balance.toFixed(2));
+            if (!amount) return;
+            const parsed = parseFloat(amount);
+            if (isNaN(parsed) || parsed <= 0) { alert('Invalid amount.'); return; }
+            if (parsed > balance + 0.01) { alert(`Amount cannot exceed the balance due of £${balance.toFixed(2)}.`); return; }
+            try {
+                const res = await fetch(PAY_BALANCE_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+                    body: JSON.stringify({ booking_id: bookingId, customer_id: customerId, amount: amount })
+                });
+                const result = await res.json();
+                if (result.status === 'success' || result.status === 'partial') {
+                    showToast('Payment recorded!');
+                    loadPreBooked();
+                } else { showToast('Payment failed', 'error'); }
+            } catch(e) { showToast('Connection error', 'error'); }
+        }
+
+        startClock(); loadDashboard(); loadPreBooked(); setInterval(() => { loadDashboard(); loadPreBooked(); }, 60000);
     </script>
 </body>
 </html>
