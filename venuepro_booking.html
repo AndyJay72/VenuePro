@@ -135,6 +135,19 @@
         input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2); background: rgba(0,0,0,0.5); }
         input[readonly] { opacity: 0.6; cursor: not-allowed; background: rgba(255,255,255,0.05); }
 
+        /* Pre-fill banner */
+        .prefill-banner { background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.35); border-radius: 10px; padding: 10px 16px; margin-bottom: 1.5rem; font-size: 0.88rem; color: var(--primary); display: none; align-items: center; gap: 10px; }
+        .prefill-banner.show { display: flex; }
+
+        /* Price override */
+        .override-row { display: flex; align-items: center; gap: 10px; margin-bottom: 1rem; }
+        .toggle-switch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-slider { position: absolute; inset: 0; background: rgba(255,255,255,0.1); border-radius: 22px; cursor: pointer; transition: 0.2s; border: 1px solid var(--border); }
+        .toggle-slider:before { content: ''; position: absolute; width: 16px; height: 16px; left: 2px; bottom: 2px; background: var(--text-muted); border-radius: 50%; transition: 0.2s; }
+        .toggle-switch input:checked + .toggle-slider { background: rgba(99,102,241,0.3); border-color: var(--primary); }
+        .toggle-switch input:checked + .toggle-slider:before { transform: translateX(18px); background: var(--primary); }
+
         /* Payment Section */
         .payment-box {
             background: rgba(0, 0, 0, 0.3);
@@ -219,6 +232,7 @@
         <form id="bookingForm" class="form-card" onsubmit="return false;">
             
             <!-- REQUEST SELECTION -->
+            <div id="prefillBanner" class="prefill-banner"><i class="fa-solid fa-wand-magic-sparkles"></i> <span id="prefillMsg">Customer details pre-filled from dashboard</span></div>
             <div class="form-section-title"><i class="fa-solid fa-inbox"></i> Select Enquiry</div>
             <div class="form-grid">
                 <div class="input-group full-width">
@@ -318,6 +332,22 @@
                 <!-- Hidden inputs for math -->
                 <input type="hidden" id="totalAmount">
                 <input type="hidden" id="depositAmount">
+
+                <!-- PRICE OVERRIDE -->
+                <div class="override-row">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="overrideToggle" onchange="togglePriceOverride()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span style="font-size:0.88rem; color:var(--text-muted); font-weight:600;">Override calculated price</span>
+                </div>
+                <div id="overrideInputWrap" style="display:none; margin-bottom:1rem; text-align:left;">
+                    <label style="color:var(--warning); font-size:0.85rem; font-weight:700; text-transform:uppercase; margin-bottom:5px; display:flex; align-items:center; gap:6px;"><i class="fa-solid fa-pen-to-square"></i> Custom Total (£)</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-sterling-sign icon-left"></i>
+                        <input type="number" id="overrideAmount" placeholder="Enter custom total" min="0" step="0.01" oninput="applyOverride()" style="border-color:var(--warning);">
+                    </div>
+                </div>
                 
                 <div id="costBreakdown" style="font-size:0.9rem; color:var(--text-muted); margin-bottom:1.5rem; font-style:italic;">Select a request to calculate</div>
 
@@ -369,6 +399,7 @@
         let pricingData = [];
         let currentEventTypeId = null;
         let _availCheckTimeout = null;
+        let _prefillCid = null;
 
         async function loadRoomsAndPricing() {
             try {
@@ -425,6 +456,26 @@
                     opt.text = `${req.full_name} | ${req.room_name} | ${dateStr}`;
                     select.add(opt);
                 });
+
+                // Auto-select if customer ID was passed via URL
+                if (_prefillCid) {
+                    const matchIdx = requestsData.findIndex(r =>
+                        String(r.customer_id) === String(_prefillCid) ||
+                        String(r.id)          === String(_prefillCid)
+                    );
+                    if (matchIdx !== -1) {
+                        select.value = matchIdx;
+                        fillDetails();
+                        const banner = document.getElementById('prefillBanner');
+                        banner.classList.add('show');
+                        document.getElementById('prefillMsg').innerText =
+                            `Auto-filled: ${requestsData[matchIdx].full_name} — you can still adjust date, times and price below`;
+                    } else {
+                        document.getElementById('prefillBanner').classList.add('show');
+                        document.getElementById('prefillMsg').innerText =
+                            'Customer not found in pending requests — please select manually below';
+                    }
+                }
             } catch (e) { console.error(e); }
         }
 
@@ -519,14 +570,17 @@
 
             const deposit = cost * (DEPOSIT_PCT / 100);
 
-            document.getElementById('totalDisplay').innerText = formatGBP(cost);
-            document.getElementById('totalAmount').value      = cost.toFixed(2);
-            document.getElementById('depositAmount').value    = deposit.toFixed(2);
-            document.getElementById('payAmount').value        = deposit.toFixed(2);
+            // Only update price display if override is NOT active
+            if (!document.getElementById('overrideToggle').checked) {
+                document.getElementById('totalDisplay').innerText = formatGBP(cost);
+                document.getElementById('totalAmount').value      = cost.toFixed(2);
+                document.getElementById('depositAmount').value    = deposit.toFixed(2);
+                document.getElementById('payAmount').value        = deposit.toFixed(2);
+                document.getElementById('btnDeposit').innerHTML =
+                    `<i class="fa-solid fa-coins"></i> Pay Deposit (${formatGBP(deposit)})`;
+            }
             document.getElementById('costBreakdown').innerText =
                 `${rateType} | ${duration.toFixed(1)} hrs | Suggested deposit ${DEPOSIT_PCT}% = ${formatGBP(deposit)}`;
-            document.getElementById('btnDeposit').innerHTML =
-                `<i class="fa-solid fa-coins"></i> Pay Deposit (${formatGBP(deposit)})`;
         }
 
         async function checkAvailability() {
@@ -659,7 +713,39 @@
             }
         }
 
+        function togglePriceOverride() {
+            const on   = document.getElementById('overrideToggle').checked;
+            const wrap = document.getElementById('overrideInputWrap');
+            wrap.style.display = on ? 'block' : 'none';
+            if (on) {
+                // Pre-fill with current calculated total
+                const cur = document.getElementById('totalAmount').value;
+                if (cur) document.getElementById('overrideAmount').value = parseFloat(cur).toFixed(2);
+                document.getElementById('overrideAmount').focus();
+                applyOverride();
+            } else {
+                // Revert to calculated price
+                calculateCost();
+            }
+        }
+
+        function applyOverride() {
+            const val = parseFloat(document.getElementById('overrideAmount').value);
+            if (isNaN(val) || val < 0) return;
+            const deposit = val * (DEPOSIT_PCT / 100);
+            document.getElementById('totalDisplay').innerText = formatGBP(val);
+            document.getElementById('totalAmount').value      = val.toFixed(2);
+            document.getElementById('depositAmount').value    = deposit.toFixed(2);
+            document.getElementById('payAmount').value        = deposit.toFixed(2);
+            document.getElementById('btnDeposit').innerHTML =
+                `<i class="fa-solid fa-coins"></i> Pay Deposit (${formatGBP(deposit)})`;
+            document.getElementById('costBreakdown').innerText =
+                `Custom price override | Suggested deposit ${DEPOSIT_PCT}% = ${formatGBP(deposit)}`;
+        }
+
         populateTimeDropdowns();
+        // Read prefill param before loading requests
+        _prefillCid = new URLSearchParams(window.location.search).get('cid');
         // Load rooms/pricing FIRST, then requests — prevents race condition where
         // fillDetails() calls calculateCost() before roomsData is populated
         loadRoomsAndPricing().then(() => loadRequests());

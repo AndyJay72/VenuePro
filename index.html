@@ -376,7 +376,7 @@
 
             if (isPendingOrContacted) {
                 const hasBooking = data.has_booking === true || data.has_booking === 'true';
-                const bookBtn    = `<a href="venuepro_booking.html" class="btn-modal btn-book"><i class="fa-solid fa-calendar-check"></i> Book Now</a>`;
+                const bookBtn    = `<a href="venuepro_booking.html?cid=${data.id}" class="btn-modal btn-book"><i class="fa-solid fa-calendar-check"></i> Book Now</a>`;
                 const cancelBtn  = `<button class="btn-modal btn-cancel" onclick="cancelRequest('${data.id}','${(data.full_name||'').replace(/'/g,"\\'")}')"><i class="fa-solid fa-ban"></i> Cancel</button>`;
                 const acceptDisabled = hasBooking ? '' : 'disabled title="A booking request must be made before accepting"';
                 const acceptBtn  = `<button class="btn-modal btn-book" style="${hasBooking ? '' : 'opacity:0.45;cursor:not-allowed;'}" ${acceptDisabled} onclick="markContacted('${data.id}','${(data.full_name||'').replace(/'/g,"\\'")}')"><i class="fa-solid fa-check"></i> Accept</button>`;
