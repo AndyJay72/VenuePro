@@ -169,6 +169,12 @@
         .search-input::placeholder { color: var(--text-muted); }
         .search-input:focus { border-color: var(--primary); }
 
+        /* --- PAGINATION --- */
+        .pagination-bar { display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.5rem; border-top: 1px solid var(--border); background: rgba(30,41,59,0.4); }
+        .btn-page { background: none; border: 1px solid var(--border); color: var(--text-muted); padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-weight: 600; transition: 0.2s; }
+        .btn-page:hover:not(:disabled) { color: white; border-color: white; }
+        .btn-page:disabled { opacity: 0.3; cursor: not-allowed; }
+
         /* --- BOOKING DETAIL MODAL extras --- */
         .bm-divider { grid-column: span 2; border: none; border-top: 1px solid var(--border); margin: 0.25rem 0; }
 
@@ -239,6 +245,11 @@
                         <tbody id="table-bookings"></tbody>
                     </table>
                 </div>
+                <div id="upcoming-pagination" class="pagination-bar" style="display:none;">
+                    <button class="btn-page" id="upcoming-prev" onclick="changeUpcomingPage(-1)">&#8249; Prev</button>
+                    <span id="upcoming-page-info" style="font-size:0.82rem; color:var(--text-muted);"></span>
+                    <button class="btn-page" id="upcoming-next" onclick="changeUpcomingPage(1)">Next &#8250;</button>
+                </div>
             </div>
         </div>
 
@@ -296,7 +307,8 @@
                 <div class="detail-group"><label>Room</label><div class="detail-value" id="bm-room">--</div></div>
                 <div class="detail-group"><label>Date</label><div class="detail-value" id="bm-date">--</div></div>
                 <div class="detail-group"><label>Time Slot</label><div class="detail-value" id="bm-time">--</div></div>
-                <div class="detail-group"><label>Status</label><div class="detail-value" id="bm-status">--</div></div>
+                <div class="detail-group"><label>Phone</label><div class="detail-value" id="bm-phone">--</div></div>
+                <div class="detail-group" style="grid-column:span 2"><label>Status</label><div class="detail-value" id="bm-status">--</div></div>
                 <div class="detail-group"><label>Total Amount</label><div class="detail-value" id="bm-total">--</div></div>
                 <div class="detail-group"><label>Balance Due</label><div class="detail-value" id="bm-balance">--</div></div>
             </div>
@@ -324,8 +336,11 @@
         const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         let revenueMonth = new Date().getMonth() + 1;
         let revenueYear  = new Date().getFullYear();
-        let allUpcomingBookings = [];
+        let allUpcomingBookings  = [];
         let allPreBookedBookings = [];
+        let upcomingFiltered     = [];
+        let upcomingPage         = 1;
+        const UPCOMING_PAGE_SIZE = 10;
 
         const formatCurrency = (num) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(num);
         function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); }
@@ -435,27 +450,8 @@
                     }).join('');
                 }
 
-                // UPCOMING BOOKINGS (SAFE DEDUPLICATION)
-                const bookBody = document.getElementById('table-bookings');
-                bookBody.innerHTML = ''; 
-
-                const bookings = data.upcoming_bookings || [];
-                const uniqueBookings = [];
-                const seenBookKeys = new Set();
-
-                bookings.forEach(b => {
-                    // Safe Key Logic: Use ID if present, otherwise Name+Date+Time, otherwise Random fallback to show data
-                    const key = b.id || (b.customer_name + b.booking_date + b.room_name) || Math.random();
-                    
-                    if (!seenBookKeys.has(key)) {
-                        seenBookKeys.add(key);
-                        uniqueBookings.push(b);
-                    }
-                });
-
-                allUpcomingBookings = uniqueBookings;
-                document.getElementById('search-upcoming').value = '';
-                renderUpcomingRows(allUpcomingBookings);
+                // Upcoming Events are loaded by loadAllBookings() from /all-bookings
+                // which provides full customer data (email, phone, time slots)
             } catch (error) { console.error('Error:', error); } finally { refreshIcon.classList.remove('fa-spin'); }
         }
 
@@ -532,7 +528,8 @@
             } catch(e) { showToast('Failed to cancel', 'error'); }
         }
 
-        async function loadPreBooked() {
+        // Single fetch for both Upcoming Events and Pre-Booked sections
+        async function loadAllBookings() {
             const container = document.getElementById('prebooked-list');
             const countEl   = document.getElementById('prebooked-count');
             try {
@@ -541,6 +538,24 @@
                 const raw  = json.data || (Array.isArray(json) ? json : []);
                 const now  = new Date(); now.setHours(0,0,0,0);
 
+                // --- UPCOMING EVENTS: all future, not cancelled, deduplicated ---
+                const seenKeys       = new Set();
+                const uniqueUpcoming = [];
+                raw.filter(b => {
+                    if (b.status === 'cancelled') return false;
+                    return new Date(b.booking_date) >= now;
+                }).sort((a, b) => new Date(a.booking_date) - new Date(b.booking_date))
+                  .forEach(b => {
+                    const key = b.id || (b.customer_name + b.booking_date + b.room_name);
+                    if (!seenKeys.has(key)) { seenKeys.add(key); uniqueUpcoming.push(b); }
+                  });
+
+                allUpcomingBookings = uniqueUpcoming;
+                document.getElementById('search-upcoming').value = '';
+                upcomingPage = 1;
+                renderUpcomingRows(allUpcomingBookings);
+
+                // --- PRE-BOOKED: future + balance outstanding ---
                 allPreBookedBookings = raw.filter(b => {
                     if (b.status === 'cancelled') return false;
                     const bDate   = new Date(b.booking_date);
@@ -552,8 +567,8 @@
                 document.getElementById('search-prebooked').value = '';
                 renderPreBookedCards(allPreBookedBookings);
             } catch(e) {
-                container.innerHTML = `<div style="text-align:center; padding:1.5rem; color:var(--text-muted);">Could not load pre-booked data</div>`;
-                console.error('loadPreBooked error:', e);
+                container.innerHTML = `<div style="text-align:center; padding:1.5rem; color:var(--text-muted);">Could not load booking data</div>`;
+                console.error('loadAllBookings error:', e);
             }
         }
 
@@ -579,12 +594,18 @@
 
         // ---- RENDER HELPERS ----
         function renderUpcomingRows(list) {
-            const bookBody = document.getElementById('table-bookings');
-            if (!list || list.length === 0) {
+            upcomingFiltered = list || [];
+            const bookBody   = document.getElementById('table-bookings');
+            if (!upcomingFiltered.length) {
                 bookBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:var(--text-muted); padding: 2rem;">No matching bookings</td></tr>`;
+                updateUpcomingPagination();
                 return;
             }
-            bookBody.innerHTML = list.map(b => {
+            const totalPages = Math.ceil(upcomingFiltered.length / UPCOMING_PAGE_SIZE);
+            if (upcomingPage > totalPages) upcomingPage = totalPages;
+            const start = (upcomingPage - 1) * UPCOMING_PAGE_SIZE;
+            const page  = upcomingFiltered.slice(start, start + UPCOMING_PAGE_SIZE);
+            bookBody.innerHTML = page.map(b => {
                 const dataStr = encodeURIComponent(JSON.stringify(b));
                 return `<tr onclick="openBookingModal('${dataStr}')" style="cursor:pointer;">
                     <td><div style="font-weight:600;">${new Date(b.booking_date).toLocaleDateString('en-GB', {day:'numeric', month:'short'})}</div></td>
@@ -593,6 +614,23 @@
                     <td><span class="status-badge ${parseFloat(b.balance_due) > 0 ? 'balance' : 'paid'}">${parseFloat(b.balance_due) > 0 ? formatCurrency(b.balance_due) + ' Due' : 'Paid'}</span></td>
                 </tr>`;
             }).join('');
+            updateUpcomingPagination();
+        }
+
+        function updateUpcomingPagination() {
+            const bar = document.getElementById('upcoming-pagination');
+            const total = upcomingFiltered.length;
+            if (total <= UPCOMING_PAGE_SIZE) { bar.style.display = 'none'; return; }
+            const totalPages = Math.ceil(total / UPCOMING_PAGE_SIZE);
+            bar.style.display = 'flex';
+            document.getElementById('upcoming-page-info').innerText = `Page ${upcomingPage} of ${totalPages}  ·  ${total} bookings`;
+            document.getElementById('upcoming-prev').disabled = upcomingPage <= 1;
+            document.getElementById('upcoming-next').disabled = upcomingPage >= totalPages;
+        }
+
+        function changeUpcomingPage(delta) {
+            upcomingPage += delta;
+            renderUpcomingRows(upcomingFiltered);
         }
 
         function renderPreBookedCards(list) {
@@ -636,6 +674,7 @@
                     (b.customer_name||'').toLowerCase().includes(term) ||
                     (b.customer_email||'').toLowerCase().includes(term))
                 : allUpcomingBookings;
+            upcomingPage = 1;
             renderUpcomingRows(filtered);
         }
 
@@ -654,6 +693,7 @@
             const b = JSON.parse(decodeURIComponent(dataStr));
             document.getElementById('bm-name').innerText  = b.customer_name || 'N/A';
             document.getElementById('bm-email').innerText = b.customer_email || 'N/A';
+            document.getElementById('bm-phone').innerText = b.customer_phone || b.phone || 'N/A';
             document.getElementById('bm-room').innerText  = b.room_name || 'N/A';
             document.getElementById('bm-date').innerText  = b.booking_date
                 ? new Date(b.booking_date).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'long', year:'numeric'})
@@ -684,7 +724,7 @@
             if (!e || e.target.id === 'bookMod') document.getElementById('bookMod').classList.remove('open');
         }
 
-        startClock(); loadDashboard(); loadPreBooked(); setInterval(() => { loadDashboard(); loadPreBooked(); }, 60000);
+        startClock(); loadDashboard(); loadAllBookings(); setInterval(() => { loadDashboard(); loadAllBookings(); }, 60000);
     </script>
 </body>
 </html>
