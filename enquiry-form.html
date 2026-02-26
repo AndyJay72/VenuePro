@@ -409,7 +409,6 @@
             if (!form.checkValidity()) { form.reportValidity(); return; }
 
             const btn = document.getElementById('submitBtn');
-            const originalContent = btn.innerHTML;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
             btn.disabled = true;
 
@@ -438,13 +437,13 @@
                     form.reset();
                     document.getElementById('statusBox').style.display = 'none';
                     isAvailable = false;
-                    btn.querySelector('span').innerText = "Check Availability First";
+                    btn.innerHTML = '<span>Check Availability First</span> <i class="fas fa-arrow-right"></i>';
+                    btn.disabled = true;
                 } else { throw new Error("Server Error"); }
             } catch (e) {
-                alert("Submission failed.");
-            } finally {
-                btn.disabled = true; // Force re-check on next attempt
-                btn.innerHTML = originalContent;
+                showStatus('error', 'Submission failed. Please check your details and try again.');
+                btn.innerHTML = '<span>Submit Enquiry</span> <i class="fas fa-arrow-right"></i>';
+                btn.disabled = false;
             }
         }
     </script>
