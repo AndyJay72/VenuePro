@@ -291,7 +291,8 @@
         const SUBMIT_API = 'https://n8n.srv1090894.hstgr.cloud/webhook/d057a40e-fb3e-402a-8ed7-fe16bce70feb';
         const BASE_API   = 'https://n8n.srv1090894.hstgr.cloud/webhook';
 
-        let isAvailable = false;
+        let isAvailable  = false;
+        let isSubmitting = false;
 
         // === LOAD ROOMS & EVENT TYPES DYNAMICALLY ===
         async function loadRoomsAndTypes() {
@@ -343,6 +344,8 @@
 
         // === LOGIC ===
         async function checkAvailability() {
+            if (isSubmitting) return; // don't interfere during form submission
+
             const room = document.getElementById('roomName').value;
             const date = document.getElementById('eventDate').value;
             const start = document.getElementById('timeFrom').value;
@@ -353,7 +356,7 @@
 
             // Reset UI
             btn.disabled = true;
-            btn.querySelector('span').innerText = "Check Availability First";
+            btn.innerHTML = '<span>Check Availability First</span> <i class="fas fa-arrow-right"></i>';
             isAvailable = false;
             box.style.display = 'none';
             box.className = 'status-box';
@@ -381,7 +384,7 @@
                 if (data.available) {
                     showStatus('success', 'Date is Available! You can submit.');
                     btn.disabled = false;
-                    btn.querySelector('span').innerText = "Submit Enquiry";
+                    btn.innerHTML = '<span>Submit Enquiry</span> <i class="fas fa-arrow-right"></i>';
                     isAvailable = true;
                 } else {
                     showStatus('error', 'Sorry, this time slot is already booked.');
@@ -409,6 +412,7 @@
             if (!form.checkValidity()) { form.reportValidity(); return; }
 
             const btn = document.getElementById('submitBtn');
+            isSubmitting = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
             btn.disabled = true;
 
@@ -439,8 +443,10 @@
                     isAvailable = false;
                     btn.innerHTML = '<span>Check Availability First</span> <i class="fas fa-arrow-right"></i>';
                     btn.disabled = true;
+                    isSubmitting = false;
                 } else { throw new Error("Server Error"); }
             } catch (e) {
+                isSubmitting = false;
                 showStatus('error', 'Submission failed. Please check your details and try again.');
                 btn.innerHTML = '<span>Submit Enquiry</span> <i class="fas fa-arrow-right"></i>';
                 btn.disabled = false;
