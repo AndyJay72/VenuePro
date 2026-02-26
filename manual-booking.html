@@ -318,11 +318,12 @@
         }
 
         const BASE_API   = 'https://n8n.srv1090894.hstgr.cloud/webhook';
-        const BOOKING_API  = BASE_API + '/make-booking';
-        const CHECK_API    = BASE_API + '/check-availability';
-        const ROOMS_API    = BASE_API + '/get-rooms';
-        const PRICING_API  = BASE_API + '/get-pricing';
-        const TYPES_API    = BASE_API + '/get-event-types';
+        const BOOKING_API   = BASE_API + '/make-booking';
+        const CHECK_API     = BASE_API + '/check-availability';
+        const ROOMS_API     = BASE_API + '/get-rooms';
+        const PRICING_API   = BASE_API + '/get-pricing';
+        const TYPES_API     = BASE_API + '/get-event-types';
+        const CUSTOMERS_API = BASE_API + '/all-customers';
 
         const DEPOSIT_PCT = 30;
 
@@ -597,8 +598,21 @@
                 console.warn('Availability pre-check failed, proceeding:', e);
             }
 
+            // Look up existing customer by phone or email to get their customer_id
+            let resolvedCustomerId = '';
+            try {
+                const custRes  = await fetch(CUSTOMERS_API, { headers: getAuthHeaders() });
+                const custJson = await custRes.json();
+                const customers = custJson.data || (Array.isArray(custJson) ? custJson : []);
+                const match = customers.find(c =>
+                    (phone && c.phone && c.phone.replace(/\D/g, '') === phone.replace(/\D/g, '')) ||
+                    (email && c.email && c.email.toLowerCase() === email.toLowerCase())
+                );
+                if (match) resolvedCustomerId = match.customer_id || match.id || '';
+            } catch(e) { console.warn('Customer lookup skipped:', e); }
+
             const payload = {
-                customer_id:    '',               // walk-in — no existing record
+                customer_id:    resolvedCustomerId,
                 customer_name:  name,
                 customer_email: email || '',
                 customer_phone: phone,
