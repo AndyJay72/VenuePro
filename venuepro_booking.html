@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VenuePro Booking</title>
+    <title>VenueDesk Booking</title>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script>
@@ -173,6 +173,15 @@
         }
         .btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
         .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .multi-day-btn {
+            width: 100%; padding: 0.6rem 1rem; border-radius: 8px;
+            font-size: 0.85rem; font-weight: 600; font-family: inherit;
+            cursor: pointer; transition: all 0.2s;
+            border: 1.5px solid var(--primary); background: transparent;
+            color: var(--primary); display: flex; align-items: center;
+            justify-content: center; gap: 0.45rem;
+        }
+        .multi-day-btn.active { background: var(--primary); color: #fff; }
         .btn-warning { background: var(--warning); }
         .btn-success { background: var(--success); }
 
@@ -202,22 +211,178 @@
             .form-card { padding: 1.5rem; }
             .action-buttons { grid-template-columns: 1fr; }
         }
-    </style>
+    
+        /* ============================================================
+           RESPONSIVE DESIGN — VenuePro Full Coverage
+           Breakpoints: 1200 / 1024 / 900 / 768 / 480 / 360
+        ============================================================ */
+
+        /* Sidebar overlay backdrop (mobile) */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.55);
+            z-index: 199;
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+        }
+        .sidebar-overlay.active { display: block; }
+
+        /* Touch-friendly minimum tap targets */
+        button, .btn, a.btn, select, input[type="text"],
+        input[type="email"], input[type="password"], input[type="tel"],
+        input[type="number"], input[type="date"], input[type="time"],
+        textarea { min-height: 44px; }
+
+        /* Responsive table wrapper */
+        .table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            width: 100%;
+            border-radius: 12px;
+        }
+        .table-wrap table { min-width: 600px; }
+
+        /* ---- 1200px (large desktop to medium desktop) ---- */
+        @media (max-width: 1200px) {
+            .stats-grid, .metrics-grid, .kpi-grid, .summary-strip {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .charts-grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        /* ---- 1024px (small laptop / large tablet landscape) ---- */
+        @media (max-width: 1024px) {
+            aside { width: 220px; }
+            main { margin-left: 220px; }
+            .stats-grid, .metrics-grid, .kpi-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ---- 900px (tablet landscape) ---- */
+        @media (max-width: 900px) {
+            .stats-grid, .metrics-grid, .kpi-grid, .summary-strip {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .grid-split, .form-grid-2col { grid-template-columns: 1fr; }
+            .filter-bar, .top-bar, .action-bar {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            .filter-bar input, .filter-bar select,
+            .top-bar input, .top-bar select { width: 100%; }
+            .charts-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ---- 768px (tablet portrait / all mobiles) ---- */
+        @media (max-width: 768px) {
+            aside {
+                position: fixed;
+                left: 0; top: 0;
+                height: 100vh;
+                width: 260px;
+                transform: translateX(-100%);
+                z-index: 200;
+                transition: transform 0.3s ease;
+            }
+            aside.active { transform: translateX(0); }
+            .close-sidebar { display: block !important; }
+            .menu-toggle { display: flex !important; }
+            main { margin-left: 0 !important; padding: 1rem; }
+
+            .page-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+            .page-header h1 { font-size: 1.4rem; }
+            .page-header .header-actions { width: 100%; }
+            .page-header .header-actions button,
+            .page-header .header-actions a { width: 100%; justify-content: center; }
+
+            .stats-grid, .metrics-grid, .kpi-grid, .summary-strip {
+                grid-template-columns: 1fr 1fr;
+                gap: 0.75rem;
+            }
+
+            .filter-bar, .top-bar, .action-bar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.5rem;
+            }
+            .filter-bar input, .filter-bar select,
+            .top-bar input, .top-bar select,
+            .action-bar input, .action-bar select { width: 100%; }
+
+            .filter-tabs { flex-wrap: wrap; gap: 0.4rem; }
+            .filter-tabs button { flex: 1 1 auto; min-width: 80px; font-size: 0.8rem; }
+
+            .modal-content, .modal-box, .modal > div:first-child {
+                width: 95vw !important;
+                max-width: 95vw !important;
+                max-height: 88vh !important;
+                overflow-y: auto;
+                border-radius: 12px !important;
+                margin: 1rem auto;
+            }
+            .modal-grid, .form-row, .form-grid {
+                grid-template-columns: 1fr !important;
+            }
+
+            table td, table th { font-size: 0.8rem; padding: 0.5rem 0.6rem; }
+            .card { padding: 1rem; }
+            .btn-group { flex-wrap: wrap; gap: 0.4rem; }
+            .btn-group button, .btn-group a { flex: 1 1 auto; }
+
+            .calendar-grid { gap: 0.25rem; }
+        }
+
+        /* ---- 480px (mobile portrait) ---- */
+        @media (max-width: 480px) {
+            main { padding: 0.75rem; }
+            .stats-grid, .metrics-grid, .kpi-grid, .summary-strip {
+                grid-template-columns: 1fr;
+                gap: 0.6rem;
+            }
+            .page-header h1 { font-size: 1.2rem; }
+            .card { padding: 0.85rem; border-radius: 12px; }
+            .stat-card h2, .kpi-card h2, .stat-value { font-size: 1.6rem; }
+            button, .btn { font-size: 0.85rem; padding: 10px 14px; }
+            .filter-tabs button { font-size: 0.75rem; padding: 6px 10px; }
+            .table-wrap table { min-width: 480px; }
+            table td, table th { font-size: 0.75rem; padding: 0.4rem 0.5rem; }
+            .badge, .status-badge { font-size: 0.7rem; padding: 2px 7px; }
+            aside { width: 240px; }
+        }
+
+        /* ---- 360px (very small phones) ---- */
+        @media (max-width: 360px) {
+            main { padding: 0.5rem; }
+            .page-header h1 { font-size: 1.1rem; }
+            aside { width: 220px; }
+            .stats-grid, .metrics-grid, .kpi-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        </style>
 </head>
 <body>
 
     <div class="overlay" id="overlay" onclick="toggleMenu()"></div>
 
     <aside id="sidebar">
-        <div class="brand"><span><i class="fa-solid fa-layer-group"></i> VenuePro</span><button class="close-sidebar" onclick="toggleMenu()"><i class="fa-solid fa-xmark"></i></button></div>
+        <div class="brand"><span><i class="fa-solid fa-layer-group"></i> VenueDesk</span><button class="close-sidebar" onclick="toggleMenu()"><i class="fa-solid fa-xmark"></i></button></div>
         <nav>
             <a href="index.html" class="nav-link"><i class="fa-solid fa-chart-pie"></i> Dashboard</a>
             <a href="bookings.html" class="nav-link"><i class="fa-solid fa-calendar-days"></i> Bookings</a>
             <a href="customers.html" class="nav-link"><i class="fa-solid fa-users"></i> Customers</a>
             <a href="accounts.html" class="nav-link"><i class="fa-solid fa-file-invoice-dollar"></i> Accounts</a>
-            <a href="venuepro_booking.html" class="nav-link active"><i class="fa-solid fa-building"></i> Event Booking</a>
+            <a href="enquiry-form.html" class="nav-link" target="_blank"><i class="fa-solid fa-file-pen"></i> New Booking</a>
             <a href="manual-booking.html" class="nav-link"><i class="fa-solid fa-person-walking-arrow-right"></i> Walk-In Booking</a>
-            <a href="final-payment.html" class="nav-link"><i class="fa-check-double"></i> Final Payment</a> 
             <a href="calendar.html" class="nav-link"><i class="fa-solid fa-calendar-alt"></i> Calendar</a>
             <a href="users.html" class="nav-link"> <i class="fa-solid fa-user-shield"></i> Users</a>      
             <a href="#" onclick="logout()" class="nav-link" style="margin-top: auto; color: #ef4444; border-top: 1px solid rgba(255,255,255,0.05);">
@@ -289,10 +454,41 @@
                     </div>
                 </div>
                 <div class="input-group">
-                    <label>Date</label>
+                    <label>Number of Guests <span style="color:var(--danger)">*</span></label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-users icon-left"></i>
+                        <input type="number" id="vpGuestCount" min="1" placeholder="e.g. 50" oninput="checkGuestCapacity()" required>
+                    </div>
+                    <span id="guestCapWarning" style="display:none;color:var(--danger);font-size:0.8rem;margin-top:4px;"><i class="fa-solid fa-triangle-exclamation"></i> <span id="guestCapMsg"></span></span>
+                </div>
+                <div class="input-group" id="singleDateGroup">
+                    <label>Event Date <span style="color:var(--danger)">*</span></label>
                     <div class="input-wrapper">
                         <i class="fa-solid fa-calendar icon-left"></i>
-                        <input type="date" id="bookingDate" required onchange="checkAvailability()">
+                        <input type="date" id="eventDate" required onchange="syncEventDate(); calculateCost(); checkAvailability();">
+                    </div>
+                </div>
+                <div class="input-group" style="align-self:flex-end;">
+                    <button type="button" id="multiDayToggle" onclick="toggleMultiDay()" class="multi-day-btn">
+                        <i class="fa-solid fa-calendar-week"></i> Requires multiple days
+                    </button>
+                </div>
+                <div id="multiDayFields" style="display:none;grid-column:span 2;">
+                    <div class="form-grid" style="margin:0;">
+                        <div class="input-group">
+                            <label>Date From <span style="color:var(--danger)">*</span></label>
+                            <div class="input-wrapper">
+                                <i class="fa-solid fa-calendar icon-left"></i>
+                                <input type="date" id="dateFrom" onchange="calculateCost(); checkAvailability();">
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label>Date To <span style="color:var(--danger)">*</span></label>
+                            <div class="input-wrapper">
+                                <i class="fa-solid fa-calendar icon-left"></i>
+                                <input type="date" id="dateTo" onchange="calculateCost(); checkAvailability();">
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="input-group">
@@ -353,6 +549,20 @@
                 
                 <div id="costBreakdown" style="font-size:0.9rem; color:var(--text-muted); margin-bottom:1.5rem; font-style:italic;">Select a request to calculate</div>
 
+                <div style="text-align: left; margin-bottom: 1.25rem;">
+                    <label style="color:var(--text-muted); font-size:0.9rem; font-weight:600; margin-bottom:5px; display:block; text-transform:uppercase;"><i class="fa-solid fa-wallet" style="margin-right:5px;"></i>Payment Method</label>
+                    <div class="input-wrapper">
+                        <i class="fa-solid fa-credit-card icon-left"></i>
+                        <select id="paymentMethod" required style="padding-left:2.2rem;">
+                            <option value="" disabled selected>Select method...</option>
+                            <option value="card">Card</option>
+                            <option value="cash">Cash</option>
+                            <option value="bank_transfer">Bank Transfer</option>
+                            <option value="cheque">Cheque</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div style="text-align: left;">
                     <label style="color:var(--text-muted); font-size:0.9rem; font-weight:600; margin-bottom:5px; display:block;">PAYING NOW (£)</label>
                     <div class="input-wrapper">
@@ -385,10 +595,11 @@
             }
         }        
         const BASE_API     = 'https://n8n.srv1090894.hstgr.cloud/webhook';
-        const REQUESTS_API = BASE_API + '/get-pending-requests';
+        const _VB_TID      = localStorage.getItem('vp_tenant_id') || '';
+        const REQUESTS_API = BASE_API + '/get-pending-requests?tenant_id=' + _VB_TID;
         const BOOKING_API  = BASE_API + '/make-booking';
         const CHECK_API    = BASE_API + '/check-availability';
-        const ROOMS_API    = BASE_API + '/get-rooms';
+        const ROOMS_API    = BASE_API + '/get-rooms?tenant_id=' + _VB_TID;
         const PRICING_API  = BASE_API + '/get-pricing';
 
         function getAuthHeaders() {
@@ -403,6 +614,31 @@
         let _availCheckTimeout = null;
         let _prefillCid = null;
 
+        function syncEventDate() {
+            const val = document.getElementById('eventDate').value;
+            document.getElementById('dateFrom').value = val;
+            document.getElementById('dateTo').value   = val;
+            if (val) document.getElementById('dateTo').min = val;
+        }
+
+        function toggleMultiDay() {
+            const btn = document.getElementById('multiDayToggle');
+            const isMulti = btn.dataset.active !== 'true';
+            btn.dataset.active = isMulti;
+            btn.classList.toggle('active', isMulti);
+            document.getElementById('singleDateGroup').style.display = isMulti ? 'none' : '';
+            document.getElementById('multiDayFields').style.display  = isMulti ? '' : 'none';
+            const ev = document.getElementById('eventDate');
+            const df = document.getElementById('dateFrom');
+            const dt = document.getElementById('dateTo');
+            ev.required = !isMulti;
+            df.required =  isMulti;
+            dt.required =  isMulti;
+            if (!isMulti) { df.value = ev.value; dt.value = ev.value; }
+            else { ev.value = ''; df.value = ''; dt.value = ''; }
+            calculateCost(); checkAvailability();
+        }
+
         async function loadRoomsAndPricing() {
             try {
                 const [rRes, pRes] = await Promise.all([
@@ -410,7 +646,7 @@
                     fetch(PRICING_API, { headers: getAuthHeaders() })
                 ]);
                 const rJson = await rRes.json();
-                const pJson = await pRes.json();
+                let pJson = {}; try { pJson = await pRes.json(); } catch(e) {}
                 roomsData   = rJson.data || (Array.isArray(rJson) ? rJson : []);
                 pricingData = pJson.data || (Array.isArray(pJson) ? pJson : []);
             } catch(e) {
@@ -419,7 +655,18 @@
         }
 
         const formatGBP = (num) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(num);
-        function toggleMenu() { document.getElementById('sidebar').classList.toggle('active'); document.getElementById('overlay').classList.toggle('active'); }
+        function toggleMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('active');
+            if (overlay) overlay.classList.toggle('active');
+        }
+        function closeSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.remove('active');
+            if (overlay) overlay.classList.remove('active');
+        }
 
         function populateTimeDropdowns() {
             const startSelect = document.getElementById('startTime');
@@ -454,7 +701,11 @@
                 requestsData.forEach((req, index) => {
                     const opt = document.createElement('option');
                     opt.value = index;
-                    const dateStr = req.requested_date ? new Date(req.requested_date).toLocaleDateString() : '';
+                    const _df = req.date_from || req.requested_date || '';
+                    const _dt = req.date_to || req.date_from || req.requested_date || '';
+                    const dateStr = _df ? (_df.slice(0,10) !== _dt.slice(0,10)
+                        ? `${new Date(_df+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})} – ${new Date(_dt+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})}`
+                        : new Date(_df+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'})) : '';
                     opt.text = `${req.full_name} | ${req.room_name} | ${dateStr}`;
                     select.add(opt);
                 });
@@ -495,10 +746,33 @@
             
             document.getElementById('roomName').value = req.room_name || '';
             document.getElementById('roomId').value = req.room_id || '';
-            currentEventTypeId = req.event_type || null; // match by name e.g. "Wedding"
+            currentEventTypeId = req.event_type || null;
+            const gv = req.guest_count || req.guests_count || req.num_people || req.numPeople || '';
+            document.getElementById('vpGuestCount').value = gv;
+            setTimeout(checkGuestCapacity, 100);
 
-            if (req.requested_date) document.getElementById('bookingDate').value = req.requested_date.split('T')[0];
-            
+            // Support both single-date (requested_date) and multi-day (date_from / date_to)
+            const df = (req.date_from || req.requested_date || '').split('T')[0];
+            const dt = (req.date_to   || req.date_from || req.requested_date || '').split('T')[0];
+            if (df && dt && df !== dt) {
+                // Multi-day — activate toggle
+                const toggleBtn = document.getElementById('multiDayToggle');
+                toggleBtn.dataset.active = 'true';
+                toggleBtn.classList.add('active');
+                document.getElementById('singleDateGroup').style.display = 'none';
+                document.getElementById('multiDayFields').style.display  = '';
+                document.getElementById('eventDate').required = false;
+                document.getElementById('dateFrom').required  = true;
+                document.getElementById('dateTo').required    = true;
+                document.getElementById('dateFrom').value = df;
+                document.getElementById('dateTo').value   = dt;
+            } else if (df) {
+                // Single-day — fill eventDate and mirror to dateFrom/dateTo
+                document.getElementById('eventDate').value = df;
+                document.getElementById('dateFrom').value  = df;
+                document.getElementById('dateTo').value    = dt || df;
+            }
+
             if (req.start_time) {
                 let t = req.start_time.split(':').slice(0,2).join(':');
                 if(t.length === 4) t = "0"+t; // Pad "9:00" -> "09:00"
@@ -514,12 +788,28 @@
             checkAvailability();
         }
 
+        function checkGuestCapacity() {
+            const roomId = document.getElementById('roomId').value;
+            const room = roomsData.find(r => String(r.id) === String(roomId));
+            const guests = parseInt(document.getElementById('vpGuestCount').value, 10);
+            const warning = document.getElementById('guestCapWarning');
+            const msg = document.getElementById('guestCapMsg');
+            if (room && room.capacity && !isNaN(guests) && guests > parseInt(room.capacity, 10)) {
+                msg.textContent = `Exceeds room capacity of ${room.capacity} guests`;
+                warning.style.display = 'inline';
+            } else {
+                warning.style.display = 'none';
+            }
+        }
+
         const DEPOSIT_PCT = 30; // Default deposit: 30% of total
 
         function calculateCost() {
-            const roomId = document.getElementById('roomId').value;
-            const start  = document.getElementById('startTime').value;
-            const end    = document.getElementById('endTime').value;
+            const roomId   = document.getElementById('roomId').value;
+            const start    = document.getElementById('startTime').value;
+            const end      = document.getElementById('endTime').value;
+            const dateFrom = document.getElementById('dateFrom').value;
+            const dateTo   = document.getElementById('dateTo').value;
 
             if (!roomId || !start || !end) return;
 
@@ -531,32 +821,37 @@
                 return;
             }
 
-            // Find room data from API
             const room = roomsData.find(r => String(r.id) === String(roomId));
             if (!room) {
                 document.getElementById('costBreakdown').innerText = 'Room data not loaded — refresh and try again';
                 return;
             }
 
-            // Step 1: Calculate base cost from room rates + duration tiers
             const baseRate = parseFloat(room.day_rate) || 0;
             const halfRate = room.half_rate ? parseFloat(room.half_rate) : null;
 
-            let cost = 0;
-            let rateType = '';
-
+            let perDayCost = 0, rateType = '';
             if (duration >= 6) {
-                cost = baseRate;
+                perDayCost = baseRate;
                 rateType = 'Full Day';
             } else if (halfRate && duration >= 3) {
-                cost = halfRate;
+                perDayCost = halfRate;
                 rateType = 'Half-Day Rate';
             } else {
-                cost = (duration / 8) * baseRate;
-                rateType = `Pro-rated ${duration.toFixed(1)}hrs of 8hr day`;
+                perDayCost = (duration / 8) * baseRate;
+                rateType = `Pro-rated ${duration.toFixed(1)}hrs`;
             }
 
-            // Step 2: Add event-type surcharge on top (if configured in Pricing Grid)
+            // Multi-day multiplier
+            const msPerDay = 86400000;
+            let numDays = 1;
+            if (dateFrom && dateTo && dateTo >= dateFrom) {
+                numDays = Math.round((new Date(dateTo) - new Date(dateFrom)) / msPerDay) + 1;
+            }
+            let cost = perDayCost * numDays;
+            if (numDays > 1) rateType += ` × ${numDays} days`;
+
+            // Event-type surcharge (per day)
             if (currentEventTypeId) {
                 const sur = pricingData.find(
                     p => String(p.room_id) === String(roomId) &&
@@ -564,15 +859,14 @@
                          p.event_type_name.toLowerCase() === currentEventTypeId.toLowerCase()
                 );
                 if (sur && sur.day_rate != null && parseFloat(sur.day_rate) > 0) {
-                    const surcharge = parseFloat(sur.day_rate);
+                    const surcharge = parseFloat(sur.day_rate) * numDays;
                     cost += surcharge;
-                    rateType += ` + ${formatGBP(surcharge)} event surcharge`;
+                    rateType += ` + ${formatGBP(surcharge)} surcharge`;
                 }
             }
 
             const deposit = cost * (DEPOSIT_PCT / 100);
 
-            // Only update price display if override is NOT active
             if (!document.getElementById('overrideToggle').checked) {
                 document.getElementById('totalDisplay').innerText = formatGBP(cost);
                 document.getElementById('totalAmount').value      = cost.toFixed(2);
@@ -582,50 +876,54 @@
                     `<i class="fa-solid fa-coins"></i> Pay Deposit (${formatGBP(deposit)})`;
             }
             document.getElementById('costBreakdown').innerText =
-                `${rateType} | ${duration.toFixed(1)} hrs | Suggested deposit ${DEPOSIT_PCT}% = ${formatGBP(deposit)}`;
+                `${rateType} | ${duration.toFixed(1)} hrs/day | ${numDays} day${numDays > 1 ? 's' : ''} | Suggested deposit ${DEPOSIT_PCT}% = ${formatGBP(deposit)}`;
         }
 
         async function checkAvailability() {
-            const room  = document.getElementById('roomName').value;
-            const date  = document.getElementById('bookingDate').value;
-            const start = document.getElementById('startTime').value;
-            const end   = document.getElementById('endTime').value;
+            const room     = document.getElementById('roomName').value;
+            const dateFrom = document.getElementById('dateFrom').value;
+            const dateTo   = document.getElementById('dateTo').value;
+            const start    = document.getElementById('startTime').value;
+            const end      = document.getElementById('endTime').value;
 
-            const el   = document.getElementById('availStatus');
-            const txt  = document.getElementById('availText');
+            const el  = document.getElementById('availStatus');
+            const txt = document.getElementById('availText');
 
-            if (!room || !date || !start || !end) {
+            if (!room || !dateFrom || !start || !end) {
                 el.className = 'avail-status idle';
                 el.querySelector('i').className = 'fa-solid fa-circle-info';
-                txt.textContent = 'Select a room, date and times to check availability';
+                txt.textContent = 'Select a room, dates and times to check availability';
                 return;
             }
 
-            // Debounce — don't fire on every keystroke
+            const msPerDay = 86400000;
+            const toDate   = dateTo && dateTo >= dateFrom ? dateTo : dateFrom;
+            const numDays  = Math.round((new Date(toDate) - new Date(dateFrom)) / msPerDay) + 1;
+
             clearTimeout(_availCheckTimeout);
             _availCheckTimeout = setTimeout(async () => {
                 el.className = 'avail-status checking';
                 el.querySelector('i').className = 'fa-solid fa-circle-notch fa-spin';
-                txt.textContent = 'Checking availability...';
+                txt.textContent = `Checking availability${numDays > 1 ? ` for ${numDays}-day booking` : ''}...`;
 
                 try {
                     const res = await fetch(CHECK_API, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
-                        body: JSON.stringify({ roomName: room, eventDate: date, timeFrom: start, timeTo: end })
+                        body: JSON.stringify({ roomName: room, eventDate: dateFrom, dateTo: toDate, timeFrom: start, timeTo: end })
                     });
                     const d = await res.json();
                     if (d.available === true || d.available === 'true') {
                         el.className = 'avail-status available';
                         el.querySelector('i').className = 'fa-solid fa-circle-check';
                         const bufMin = parseInt(d.buffer_minutes) || 0;
-                        txt.textContent = `Slot available${bufMin > 0 ? ' \u2014 ' + bufMin + '-min turnaround buffer applied' : ''}`;
+                        txt.textContent = `Available${numDays > 1 ? ` for ${numDays}-day booking` : ''}${bufMin > 0 ? ` \u2014 ${bufMin}-min buffer applied` : ''}`;
                         document.querySelectorAll('.btn').forEach(b => b.disabled = false);
                     } else {
                         el.className = 'avail-status unavailable';
                         el.querySelector('i').className = 'fa-solid fa-circle-xmark';
                         const bufMin = parseInt(d.buffer_minutes) || 0;
-                        txt.textContent = `Conflict detected${bufMin > 0 ? ' (includes ' + bufMin + '-min buffer)' : ''} \u2014 please choose a different time`;
+                        txt.textContent = `Conflict detected${bufMin > 0 ? ` (includes ${bufMin}-min buffer)` : ''} \u2014 please choose a different time`;
                         document.querySelectorAll('.btn').forEach(b => b.disabled = true);
                     }
                 } catch(e) {
@@ -654,6 +952,29 @@
                 return;
             }
 
+            // SAFETY CHECK — payment method not selected
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            if (!paymentMethod) {
+                alert('Please select a payment method.');
+                document.getElementById('paymentMethod').focus();
+                return;
+            }
+
+            // CAPACITY CHECK — prevent guest count exceeding room cap
+            const bookingRoomId = document.getElementById('roomId').value;
+            const bookingRoom = roomsData.find(r => String(r.id) === String(bookingRoomId));
+            const bookingGuests = parseInt(document.getElementById('vpGuestCount').value, 10);
+            if (isNaN(bookingGuests) || bookingGuests < 1) {
+                alert('Please enter the number of guests before confirming the booking.');
+                document.getElementById('vpGuestCount').focus();
+                return;
+            }
+            if (bookingRoom && bookingRoom.capacity && bookingGuests > parseInt(bookingRoom.capacity, 10)) {
+                alert(`⚠️ Capacity exceeded!\n\nThe ${bookingRoom.name} has a maximum capacity of ${bookingRoom.capacity} guests.\nThis booking has ${bookingGuests} guests.\n\nPlease reduce the guest count or choose a different room.`);
+                document.getElementById('vpGuestCount').focus();
+                return;
+            }
+
             if (type === 'full') payAmount = total;
 
             const btns = document.querySelectorAll('.btn');
@@ -666,7 +987,7 @@
                     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
                     body: JSON.stringify({
                         roomName: document.getElementById('roomName').value,
-                        eventDate: document.getElementById('bookingDate').value,
+                        eventDate: document.getElementById('dateFrom').value,
                         timeFrom: document.getElementById('startTime').value,
                         timeTo: document.getElementById('endTime').value
                     })
@@ -690,12 +1011,17 @@
                 request_id:     document.getElementById('requestId').value,
                 room_id:        document.getElementById('roomId').value,
                 room_name:      document.getElementById('roomName').value,
-                booking_date:   document.getElementById('bookingDate').value,
+                booking_date:   document.getElementById('dateFrom').value,
+                date_from:      document.getElementById('dateFrom').value,
+                date_to:        document.getElementById('dateTo').value,
                 start_time:     document.getElementById('startTime').value,
                 end_time:       document.getElementById('endTime').value,
                 total_amount:   total,           // number, not string
                 payment_amount: payAmount,       // number, not string
-                payment_type:   type === 'full' ? 'full' : 'deposit'
+                balance_due:    parseFloat((total - payAmount).toFixed(2)),
+                payment_type:   type === 'full' ? 'full' : 'deposit',
+                payment_method: paymentMethod,
+                guest_count:    document.getElementById('vpGuestCount').value || ''
             };
 
             try {
